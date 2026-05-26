@@ -25,6 +25,14 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
+## GitHub Pages
+
+Pushes to `main` deploy the static prototype with GitHub Actions.
+
+The hosted URL is:
+
+`https://rcrespo808.github.io/tabletop-sheet-roller/`
+
 ## Supported Dice
 
 D&D 5e manual rolls support:

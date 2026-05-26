@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { getPublicAssetPath } from "@/lib/site";
 import type { CharacterSheet } from "@/lib/sheets/types";
 
 type CharacterSheetViewerProps = {
@@ -10,6 +11,7 @@ type CharacterSheetViewerProps = {
 
 export function CharacterSheetViewer({ character }: CharacterSheetViewerProps) {
   const [failed, setFailed] = useState(false);
+  const sheetImagePath = getPublicAssetPath(character.sheetImage);
 
   if (failed) {
     return (
@@ -30,7 +32,7 @@ export function CharacterSheetViewer({ character }: CharacterSheetViewerProps) {
         className="h-auto w-full object-contain"
         height={1600}
         onError={() => setFailed(true)}
-        src={character.sheetImage}
+        src={sheetImagePath}
         unoptimized
         width={1200}
       />
