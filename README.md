@@ -25,13 +25,11 @@ npm run dev
 
 Then open `http://localhost:3000`.
 
-## GitHub Pages
+## Deployment
 
-Pushes to `main` deploy the static prototype with GitHub Actions.
+Vercel deploys the app through its GitHub integration. GitHub Actions run CI checks and can apply Supabase migrations to the existing Supabase project.
 
-The hosted URL is:
-
-`https://rcrespo808.github.io/tabletop-sheet-roller/`
+See `docs/deployment.md` for required GitHub/Vercel secrets and migration workflow details.
 
 ## Supported Dice
 

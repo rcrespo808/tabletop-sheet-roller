@@ -1,0 +1,2 @@
+-- Optional local seed data for `supabase db reset`.
+-- Keep this file free of production data and secrets.
