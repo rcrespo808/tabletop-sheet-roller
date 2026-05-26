@@ -9,12 +9,17 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        charcoal: "#111317",
-        panel: "#181b21",
-        "panel-soft": "#20242c",
-        "dnd-red": "#a63d35",
-        "dnd-gold": "#d9a441",
-        "nwod-teal": "#2fb8ac"
+        background: "#0a0e27",
+        foreground: "#f5f1e8",
+        muted: "#2a3050",
+        "muted-foreground": "#a0a8c8",
+        charcoal: "#0a0e27",
+        panel: "#0f1429",
+        "panel-soft": "#1a1f3a",
+        "dnd-red": "#b85d2d",
+        "dnd-gold": "#f59e0b",
+        "nwod-teal": "#06b6d4",
+        "magic-purple": "#8b5cf6"
       }
     }
   },

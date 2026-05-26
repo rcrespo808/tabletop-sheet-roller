@@ -2,11 +2,13 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
+import { Dices } from "lucide-react";
 import { rollDndExpression } from "@/lib/dice/dnd";
 import { createRollLogEntry } from "@/lib/dice/log";
 import { rollNwodPool } from "@/lib/dice/nwod";
 import type { GameSystem, RollLogEntry } from "@/lib/sheets/types";
 import type { NwodAgain } from "@/lib/dice/types";
+import { GlassPanel } from "./GlassPanel";
 
 type DiceRollerProps = {
   characterName?: string;
@@ -66,15 +68,18 @@ export function DiceRoller({
   }
 
   return (
-    <section className="rounded-lg border border-white/10 bg-panel p-4">
-      <h2 className="text-base font-semibold text-white">Manual Dice</h2>
+    <GlassPanel level="secondary" glow="medium" className="p-5">
+      <div className="flex items-center gap-2">
+        <Dices className="h-5 w-5 text-purple-300" aria-hidden="true" />
+        <h2 className="text-lg font-semibold text-foreground">Manual Dice</h2>
+      </div>
       <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
-        <div className="grid grid-cols-2 gap-2 rounded-md bg-zinc-950/70 p-1">
+        <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-950/60 p-1">
           <button
-            className={`h-10 rounded text-sm font-semibold transition ${
+            className={`h-10 rounded-md text-sm font-semibold transition ${
               system === "dnd5e"
-                ? "bg-dnd-red text-white"
-                : "text-zinc-400 hover:bg-white/10 hover:text-white"
+                ? "border border-amber-500/40 bg-amber-500/25 text-amber-100"
+                : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
             }`}
             onClick={() => setSystem("dnd5e")}
             type="button"
@@ -82,10 +87,10 @@ export function DiceRoller({
             D&D 5e
           </button>
           <button
-            className={`h-10 rounded text-sm font-semibold transition ${
+            className={`h-10 rounded-md text-sm font-semibold transition ${
               system === "nwod"
-                ? "bg-nwod-teal text-charcoal"
-                : "text-zinc-400 hover:bg-white/10 hover:text-white"
+                ? "border border-cyan-500/40 bg-cyan-500/25 text-cyan-100"
+                : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
             }`}
             onClick={() => setSystem("nwod")}
             type="button"
@@ -96,11 +101,11 @@ export function DiceRoller({
 
         {system === "dnd5e" ? (
           <label className="block">
-            <span className="text-xs font-semibold uppercase text-zinc-500">
+            <span className="text-xs font-semibold uppercase text-muted-foreground">
               Expression
             </span>
             <input
-              className="mt-2 h-11 w-full rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-dnd-gold/70"
+              className="mt-2 h-11 w-full rounded-lg border border-slate-700/30 bg-slate-900/50 px-3 text-sm text-foreground outline-none transition placeholder:text-slate-600 focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20"
               onChange={(event) => setDndExpression(event.target.value)}
               placeholder="1d20+8"
               value={dndExpression}
@@ -109,11 +114,11 @@ export function DiceRoller({
         ) : (
           <div className="space-y-4">
             <label className="block">
-              <span className="text-xs font-semibold uppercase text-zinc-500">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">
                 Pool
               </span>
               <input
-                className="mt-2 h-11 w-full rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-white outline-none transition focus:border-nwod-teal/70"
+                className="mt-2 h-11 w-full rounded-lg border border-slate-700/30 bg-slate-900/50 px-3 text-sm text-foreground outline-none transition focus:border-cyan-500/60 focus:ring-2 focus:ring-cyan-500/20"
                 min={0}
                 onChange={(event) => setPool(Number(event.target.value))}
                 type="number"
@@ -121,11 +126,11 @@ export function DiceRoller({
               />
             </label>
             <label className="block">
-              <span className="text-xs font-semibold uppercase text-zinc-500">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">
                 Again Rule
               </span>
               <select
-                className="mt-2 h-11 w-full rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-white outline-none transition focus:border-nwod-teal/70"
+                className="mt-2 h-11 w-full rounded-lg border border-slate-700/30 bg-slate-900/50 px-3 text-sm text-foreground outline-none transition focus:border-cyan-500/60 focus:ring-2 focus:ring-cyan-500/20"
                 onChange={(event) => {
                   const value = event.target.value;
                   setAgain(value === "none" ? null : (Number(value) as NwodAgain));
@@ -139,7 +144,7 @@ export function DiceRoller({
               </select>
             </label>
             <div className="grid grid-cols-2 gap-2">
-              <label className="flex min-h-11 items-center gap-2 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-zinc-300">
+              <label className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-700/30 bg-slate-900/50 px-3 text-sm text-muted-foreground">
                 <input
                   checked={rote}
                   className="accent-nwod-teal"
@@ -148,7 +153,7 @@ export function DiceRoller({
                 />
                 Rote
               </label>
-              <label className="flex min-h-11 items-center gap-2 rounded-md border border-white/10 bg-zinc-950 px-3 text-sm text-zinc-300">
+              <label className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-700/30 bg-slate-900/50 px-3 text-sm text-muted-foreground">
                 <input
                   checked={chanceDie}
                   className="accent-nwod-teal"
@@ -164,12 +169,16 @@ export function DiceRoller({
         {error ? <p className="text-sm text-red-300">{error}</p> : null}
 
         <button
-          className="h-11 w-full rounded-md bg-white px-4 text-sm font-semibold text-charcoal transition hover:bg-zinc-200"
+          className={`h-11 w-full rounded-lg border px-4 text-sm font-semibold transition ${
+            system === "dnd5e"
+              ? "border-amber-500/50 bg-gradient-to-r from-amber-500/35 to-orange-600/35 text-amber-100 hover:from-amber-500/45 hover:to-orange-600/45"
+              : "border-cyan-500/50 bg-gradient-to-r from-cyan-500/35 to-cyan-600/35 text-cyan-100 hover:from-cyan-500/45 hover:to-cyan-600/45"
+          }`}
           type="submit"
         >
           Roll
         </button>
       </form>
-    </section>
+    </GlassPanel>
   );
 }

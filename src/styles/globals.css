@@ -4,7 +4,7 @@
 
 :root {
   color-scheme: dark;
-  background: #111317;
+  background: #0a0e27;
 }
 
 * {
@@ -18,8 +18,9 @@ html {
 body {
   min-height: 100%;
   margin: 0;
-  background: #111317;
-  color: #f4f4f5;
+  background:
+    linear-gradient(135deg, rgba(10, 14, 39, 1) 0%, rgba(15, 20, 41, 1) 46%, rgba(8, 11, 28, 1) 100%);
+  color: #f5f1e8;
 }
 
 button,

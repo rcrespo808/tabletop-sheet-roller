@@ -12,12 +12,12 @@ const labels: Record<GameSystem, string> = {
 export function SystemBadge({ system }: SystemBadgeProps) {
   const className =
     system === "dnd5e"
-      ? "border-dnd-gold/40 bg-dnd-red/20 text-dnd-gold"
-      : "border-nwod-teal/40 bg-nwod-teal/15 text-nwod-teal";
+      ? "border-amber-500/40 bg-amber-500/20 text-amber-200"
+      : "border-cyan-500/40 bg-cyan-500/20 text-cyan-200";
 
   return (
     <span
-      className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase ${className}`}
+      className={`inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-medium uppercase ${className}`}
     >
       {labels[system]}
     </span>

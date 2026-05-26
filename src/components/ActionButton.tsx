@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BookOpen, ChevronDown, Shield, Zap } from "lucide-react";
 import { createRollLogEntry } from "@/lib/dice/log";
 import { rollDndExpression } from "@/lib/dice/dnd";
 import { rollNwodPool } from "@/lib/dice/nwod";
@@ -24,8 +25,47 @@ function getActionExpression(action: SheetAction): string {
   }`;
 }
 
+function getActionVisual(action: SheetAction) {
+  const label = action.label.toLowerCase();
+
+  if (label.includes("save") || label.includes("ward")) {
+    return {
+      icon: Shield,
+      className: "border-blue-500/40 bg-blue-500/15 text-blue-100 hover:bg-blue-500/25"
+    };
+  }
+
+  if (
+    label.includes("silence") ||
+    label.includes("resonance") ||
+    label.includes("projection") ||
+    label.includes("hijack") ||
+    label.includes("emotional")
+  ) {
+    return {
+      icon: BookOpen,
+      className:
+        "border-purple-500/40 bg-purple-500/15 text-purple-100 hover:bg-purple-500/25"
+    };
+  }
+
+  if (action.type === "dnd-roll") {
+    return {
+      icon: Zap,
+      className: "border-red-500/40 bg-red-500/15 text-red-100 hover:bg-red-500/25"
+    };
+  }
+
+  return {
+    icon: ChevronDown,
+    className: "border-green-500/40 bg-green-500/15 text-green-100 hover:bg-green-500/25"
+  };
+}
+
 export function ActionButton({ action, character, onRoll }: ActionButtonProps) {
   const [error, setError] = useState<string | null>(null);
+  const visual = getActionVisual(action);
+  const Icon = visual.icon;
 
   function handleClick() {
     setError(null);
@@ -72,15 +112,20 @@ export function ActionButton({ action, character, onRoll }: ActionButtonProps) {
   return (
     <div>
       <button
-        className="group w-full rounded-md border border-white/10 bg-panel-soft px-4 py-3 text-left transition hover:border-white/20 hover:bg-zinc-700/60"
+        className={`group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition ${visual.className}`}
         onClick={handleClick}
         type="button"
       >
-        <span className="block text-sm font-semibold text-white">{action.label}</span>
-        <span className="mt-1 block text-xs text-zinc-400">{getActionExpression(action)}</span>
-        {action.notes ? (
-          <span className="mt-2 block text-xs leading-5 text-zinc-500">{action.notes}</span>
-        ) : null}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-slate-950/35">
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">{action.label}</span>
+          <span className="mt-1 block text-xs opacity-75">{getActionExpression(action)}</span>
+          {action.notes ? (
+            <span className="mt-2 block text-xs leading-5 opacity-70">{action.notes}</span>
+          ) : null}
+        </span>
       </button>
       {error ? <p className="mt-2 text-xs text-red-300">{error}</p> : null}
     </div>
