@@ -90,15 +90,11 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
         run: |
           missing=0
           test -n "$VERCEL_TOKEN" || { echo "::warning::Missing secret: VERCEL_TOKEN"; missing=1; }
           test -n "$VERCEL_ORG_ID" || { echo "::warning::Missing secret: VERCEL_ORG_ID"; missing=1; }
           test -n "$VERCEL_PROJECT_ID" || { echo "::warning::Missing secret: VERCEL_PROJECT_ID"; missing=1; }
-          test -n "$NEXT_PUBLIC_SUPABASE_URL" || { echo "::warning::Missing secret: NEXT_PUBLIC_SUPABASE_URL"; missing=1; }
-          test -n "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" || { echo "::warning::Missing secret: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"; missing=1; }
 
           if [ "$missing" -eq 1 ]; then
             echo "can_run=false" >> "$GITHUB_OUTPUT"
@@ -111,21 +107,12 @@ jobs:
         if: (github.event_name == 'push' || github.event.inputs.deploy_app == 'true') && steps.app_secrets.outputs.can_run == 'true'
         run: npm ci
 
-      - name: Build app
-        if: (github.event_name == 'push' || github.event.inputs.deploy_app == 'true') && steps.app_secrets.outputs.can_run == 'true'
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
-        run: npm run build
-
       - name: Deploy app to Vercel
         if: (github.event_name == 'push' || github.event.inputs.deploy_app == 'true') && steps.app_secrets.outputs.can_run == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
         run: |
           npm i -g vercel
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"

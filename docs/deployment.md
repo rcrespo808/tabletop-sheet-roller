@@ -80,5 +80,5 @@ Required repository **secrets** for app deployment:
 - `VERCEL_TOKEN`
 - `VERCEL_ORG_ID`
 - `VERCEL_PROJECT_ID`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+
+The deploy workflow runs `vercel pull` and `vercel build`, so Supabase runtime environment variables should stay configured in Vercel Project Settings rather than duplicated into GitHub Actions secrets.
