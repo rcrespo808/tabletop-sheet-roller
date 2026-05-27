@@ -68,3 +68,15 @@ Sheet image paths are placeholders. Missing images show a fallback panel instead
 ## Next Iteration
 
 Room-based realtime logs are the next useful step. Supabase Realtime or PartyKit would both fit the current model without forcing a full account system immediately.
+
+## Persistence Milestone (Supabase)
+
+Suggested next implementation steps:
+
+1. Add SQL migrations for `characters`, `character_actions`, and `roll_logs` tables.
+2. Add Row Level Security policies for read/write behavior (or keep service-role only for admin tasks).
+3. Add server-side Supabase client wiring for secure writes using `SUPABASE_SECRET_KEY`/`SUPABASE_SERVICE_ROLE_KEY`.
+4. Add browser-side Supabase client wiring for public reads/realtime using `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+5. Replace hardcoded characters with reads mapped from Supabase DTO rows.
+6. Persist roll logs to `roll_logs` and subscribe to realtime updates for room timelines.
+7. Add integration tests for DTO mapping and migration smoke checks in CI.

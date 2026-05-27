@@ -6,7 +6,7 @@ Do not commit `.env.local`, Supabase access tokens, database passwords, service-
 
 ## Vercel
 
-Vercel should stay connected to GitHub and deploy automatically on pushes/PRs. No Vercel CLI deployment workflow is included, so there are no duplicate Vercel deployments.
+Vercel can stay connected to GitHub for default preview behavior, and this repo also includes an optional GitHub Actions deploy workflow using the Vercel CLI for controlled production deployments.
 
 Add these environment variables in Vercel Project Settings:
 
@@ -59,3 +59,26 @@ npx supabase migration new create_example_table
 ```
 
 Then edit the generated SQL file and commit it. The workflow does not create a Supabase project; it only links to the existing project and pushes committed migrations.
+
+
+## Unified Deploy Workflow
+
+A combined workflow is available at `.github/workflows/deploy.yml`:
+
+- On `push` to `main`, it attempts Supabase migrations and app deployment.
+- On `workflow_dispatch`, you can run migrations only, app deployment only, or both.
+- If required secrets are missing, it logs explicit warnings and skips that section instead of failing silently.
+
+Required repository **secrets** for migration:
+
+- `SUPABASE_ACCESS_TOKEN`
+- `SUPABASE_DB_PASSWORD`
+- `SUPABASE_PROJECT_ID`
+
+Required repository **secrets** for app deployment:
+
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`

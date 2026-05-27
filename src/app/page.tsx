@@ -1,10 +1,31 @@
+"use client";
+
 import Link from "next/link";
 import { Plus, Sparkles } from "lucide-react";
+import { useMemo, useState } from "react";
 import { CharacterCard } from "@/components/CharacterCard";
+import { CharacterManager } from "@/components/CharacterManager";
 import { GlassPanel } from "@/components/GlassPanel";
 import { characters } from "@/data/characters";
+import { loadCustomCharacters, saveCustomCharacters } from "@/lib/sheets/customCharacters";
+import type { CharacterSheet } from "@/lib/sheets/types";
 
 export default function HomePage() {
+  const [customCharacters, setCustomCharacters] = useState<CharacterSheet[]>(() =>
+    loadCustomCharacters()
+  );
+
+  function addCharacter(character: CharacterSheet) {
+    const next = [
+      ...customCharacters.filter((entry) => entry.id !== character.id),
+      character
+    ];
+    setCustomCharacters(next);
+    saveCustomCharacters(next);
+  }
+
+  const allCharacters = useMemo(() => [...characters, ...customCharacters], [customCharacters]);
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="border-b border-slate-700/20 bg-background/80 backdrop-blur-xl">
@@ -33,7 +54,8 @@ export default function HomePage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-8">
+        <CharacterManager onAdd={addCharacter} />
+        <div className="mb-8 mt-8">
           <h2 className="text-xl font-semibold text-foreground">Your Characters</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
             Select a character to open their sheet, trigger prepared actions, and keep a
@@ -42,7 +64,7 @@ export default function HomePage() {
         </div>
 
         <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {characters.map((character) => (
+          {allCharacters.map((character) => (
             <CharacterCard character={character} key={character.id} />
           ))}
         </section>
