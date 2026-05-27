@@ -1,35 +1,38 @@
 "use client";
 
-import Link from "next/link";
-import { Plus, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
-import { CharacterCard } from "@/components/CharacterCard";
-import { CharacterManager } from "@/components/CharacterManager";
+import { CharacterProfileCard } from "@/components/CharacterProfileCard";
+import { CreateCharacterPanel } from "@/components/CreateCharacterPanel";
 import { GlassPanel } from "@/components/GlassPanel";
-import { characters } from "@/data/characters";
-import { loadCustomCharacters, saveCustomCharacters } from "@/lib/sheets/customCharacters";
-import type { CharacterSheet } from "@/lib/sheets/types";
+import { characterProfiles } from "@/data/characters";
+import {
+  getAllProfiles,
+  loadCustomProfiles,
+  saveCustomProfiles
+} from "@/lib/sheets/customCharacters";
+import type { CharacterProfile } from "@/lib/sheets/types";
 
 export default function HomePage() {
-  const [customCharacters, setCustomCharacters] = useState<CharacterSheet[]>(() =>
-    loadCustomCharacters()
+  const [customProfiles, setCustomProfiles] = useState<CharacterProfile[]>(() =>
+    loadCustomProfiles()
   );
 
-  function addCharacter(character: CharacterSheet) {
-    const next = [
-      ...customCharacters.filter((entry) => entry.id !== character.id),
-      character
-    ];
-    setCustomCharacters(next);
-    saveCustomCharacters(next);
+  function addProfile(profile: CharacterProfile) {
+    const next = [...customProfiles.filter((entry) => entry.id !== profile.id), profile];
+    setCustomProfiles(next);
+    saveCustomProfiles(next);
   }
 
-  const allCharacters = useMemo(() => [...characters, ...customCharacters], [customCharacters]);
+  const allProfiles = useMemo(
+    () => getAllProfiles(customProfiles),
+    [customProfiles]
+  );
 
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="border-b border-slate-700/20 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-purple-700 shadow-lg shadow-purple-500/20">
               <Sparkles className="h-6 w-6 text-white" aria-hidden="true" />
@@ -43,36 +46,44 @@ export default function HomePage() {
               </h1>
             </div>
           </div>
-          <Link
-            className="inline-flex h-11 w-fit items-center gap-2 rounded-lg border border-purple-500/40 bg-purple-500/20 px-4 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/30"
-            href="/characters/he-zhen"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Open He Zhen
-          </Link>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            One character identity, multiple system sheets. Open a profile to switch between D&D
+            5e and NWoD variants.
+          </p>
         </div>
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <CharacterManager onAdd={addCharacter} />
+        <CreateCharacterPanel onAdd={addProfile} />
+
         <div className="mb-8 mt-8">
           <h2 className="text-xl font-semibold text-foreground">Your Characters</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Select a character to open their sheet, trigger prepared actions, and keep a
-            browser-session roll log.
+            Select a character to open their workspace, switch system tabs, and roll from prepared
+            actions.
           </p>
         </div>
 
         <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {allCharacters.map((character) => (
-            <CharacterCard character={character} key={character.id} />
+          {allProfiles.map((profile) => (
+            <CharacterProfileCard profile={profile} key={profile.id} />
           ))}
         </section>
+
+        {allProfiles.length === 0 ? (
+          <GlassPanel level="tertiary" className="mt-6 p-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              No characters yet. Expand Create or Import above to add one.
+            </p>
+          </GlassPanel>
+        ) : null}
 
         <div className="mt-12 border-t border-slate-700/20 pt-8">
           <GlassPanel level="tertiary" className="p-6 text-center">
             <p className="text-sm text-muted-foreground">
-              The MVP is static and local-first. Realtime rooms are the next system layer.
+              {characterProfiles.length} seeded profile
+              {characterProfiles.length === 1 ? "" : "s"} · local-first storage · session roll
+              log
             </p>
           </GlassPanel>
         </div>

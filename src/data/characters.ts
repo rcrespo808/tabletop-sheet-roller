@@ -1,82 +1,150 @@
-import type { CharacterSheet } from "@/lib/sheets/types";
+import type { CharacterProfile, GameSystem, SheetAction, SystemSheet } from "@/lib/sheets/types";
 
-export const characters: CharacterSheet[] = [
+export const characterProfiles: CharacterProfile[] = [
   {
     id: "he-zhen",
     name: "He Zhen",
-    system: "dnd5e",
     subtitle: "The Tuned Immortal",
-    sheetImage: "/characters/he-zhen/sheet.png",
-    actions: [
-      {
-        type: "dnd-roll",
-        label: "Rapier Attack",
-        roll: "1d20+8"
+    concept: "Occult signal manipulator and silence-based controller.",
+    defaultSystem: "dnd5e",
+    portraitImage: "/characters/he-zhen/sheet.png",
+    sheets: {
+      dnd5e: {
+        system: "dnd5e",
+        label: "D&D 5e",
+        levelLabel: "Level 12 Resonant",
+        sheetImage: "/characters/he-zhen/sheet.png",
+        actions: [
+          {
+            id: "dnd-rapier-attack",
+            type: "dnd-roll",
+            label: "Rapier Attack",
+            roll: "1d20+8"
+          },
+          {
+            id: "dnd-rapier-damage",
+            type: "dnd-roll",
+            label: "Rapier Damage",
+            roll: "1d8+2"
+          },
+          {
+            id: "dnd-resonance-check",
+            type: "dnd-roll",
+            label: "Resonance Check",
+            roll: "1d20+10"
+          },
+          {
+            id: "dnd-int-save",
+            type: "dnd-roll",
+            label: "Intelligence Save",
+            roll: "1d20+9"
+          },
+          {
+            id: "dnd-silence-dc",
+            type: "dnd-roll",
+            label: "Silence Field DC Reminder",
+            roll: "1d20+5",
+            notes: "Placeholder roll for the MVP action model."
+          }
+        ]
       },
-      {
-        type: "dnd-roll",
-        label: "Rapier Damage",
-        roll: "1d8+2"
-      },
-      {
-        type: "dnd-roll",
-        label: "Resonance Check",
-        roll: "1d20+10"
-      },
-      {
-        type: "dnd-roll",
-        label: "Intelligence Save",
-        roll: "1d20+9"
-      },
-      {
-        type: "dnd-roll",
-        label: "Silence Field DC Reminder",
-        roll: "1d20+5",
-        notes: "Placeholder roll for the MVP action model."
+      nwod: {
+        system: "nwod",
+        label: "NWoD",
+        levelLabel: "Dead Air",
+        sheetImage: "/characters/he-zhen/sheet.png",
+        actions: [
+          {
+            id: "nwod-resonance-projection",
+            type: "nwod-pool",
+            label: "Resonance Projection",
+            pool: 8,
+            again: 10
+          },
+          {
+            id: "nwod-absolute-silence",
+            type: "nwod-pool",
+            label: "Absolute Silence",
+            pool: 8,
+            again: 10
+          },
+          {
+            id: "nwod-signal-hijack",
+            type: "nwod-pool",
+            label: "Signal Hijack",
+            pool: 7,
+            again: 10
+          },
+          {
+            id: "nwod-harmonic-ward",
+            type: "nwod-pool",
+            label: "Harmonic Ward",
+            pool: 9,
+            again: 10
+          },
+          {
+            id: "nwod-emotional-resonance",
+            type: "nwod-pool",
+            label: "Emotional Resonance",
+            pool: 6,
+            again: 10
+          }
+        ]
       }
-    ]
-  },
-  {
-    id: "he-zhen-nwod",
-    name: "He Zhen NWoD",
-    system: "nwod",
-    subtitle: "Dead Air",
-    sheetImage: "/characters/he-zhen/sheet.png",
-    actions: [
-      {
-        type: "nwod-pool",
-        label: "Resonance Projection",
-        pool: 8,
-        again: 10
-      },
-      {
-        type: "nwod-pool",
-        label: "Absolute Silence",
-        pool: 8,
-        again: 10
-      },
-      {
-        type: "nwod-pool",
-        label: "Signal Hijack",
-        pool: 7,
-        again: 10
-      },
-      {
-        type: "nwod-pool",
-        label: "Harmonic Ward",
-        pool: 9,
-        again: 10
-      },
-      {
-        type: "nwod-pool",
-        label: "Emotional Resonance",
-        pool: 6,
-        again: 10
-      }
-    ]
+    }
   }
 ];
 
-export function getCharacter(characterId: string): CharacterSheet | undefined {
-  return characters.find((character) => character.id === characterId);
+export function getCharacterProfile(characterId: string): CharacterProfile | undefined {
+  return characterProfiles.find((profile) => profile.id === characterId);
+}
+
+export function getAvailableSystems(profile: CharacterProfile): GameSystem[] {
+  return (Object.keys(profile.sheets) as GameSystem[]).filter(
+    (system) => profile.sheets[system] !== undefined
+  );
+}
+
+export function getSystemSheet(
+  profile: CharacterProfile,
+  system: GameSystem
+): SystemSheet | undefined {
+  return profile.sheets[system];
+}
+
+export function getPrimaryImage(profile: CharacterProfile): string | undefined {
+  const defaultSheet = profile.sheets[profile.defaultSystem];
+  return (
+    profile.portraitImage ??
+    defaultSheet?.sheetImage ??
+    profile.sheets.dnd5e?.sheetImage ??
+    profile.sheets.nwod?.sheetImage
+  );
+}
+
+export function getActionCount(profile: CharacterProfile, system: GameSystem): number {
+  return profile.sheets[system]?.actions.length ?? 0;
+}
+
+export function getTotalActionCount(profile: CharacterProfile): number {
+  return getAvailableSystems(profile).reduce(
+    (total, system) => total + getActionCount(profile, system),
+    0
+  );
+}
+
+export function ensureActionIds(
+  actions: (SheetAction | Omit<SheetAction, "id">)[]
+): SheetAction[] {
+  return actions.map((action, index) => {
+    const withId = action as SheetAction;
+    if (typeof withId.id === "string" && withId.id.trim()) {
+      return withId;
+    }
+
+    return {
+      ...action,
+      id: `${action.type}-${index}-${action.label.toLowerCase().replace(/\s+/g, "-")}`
+    } as SheetAction;
+  });
 }

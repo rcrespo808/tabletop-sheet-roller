@@ -52,8 +52,8 @@ NWoD rolls support:
 
 ## Seed Characters
 
-- He Zhen, D&D 5e
-- He Zhen NWoD
+- He Zhen — one profile with D&D 5e and NWoD system sheets (`/characters/he-zhen`)
+- Legacy `/characters/he-zhen-nwod` redirects to He Zhen with the NWoD tab selected
 
 Sheet image paths are placeholders. Missing images show a fallback panel instead of crashing.
 
