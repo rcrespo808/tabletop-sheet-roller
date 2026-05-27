@@ -1,0 +1,133 @@
+name: Deploy (Supabase + App)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_migrations:
+        description: "Run Supabase migrations"
+        required: true
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+      deploy_app:
+        description: "Deploy app with Vercel CLI"
+        required: true
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: github.event_name == 'push' || github.event.inputs.deploy_app == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.16.0"
+          cache: npm
+
+      - name: Validate migration secrets
+        id: migration_secrets
+        if: github.event_name == 'push' || github.event.inputs.run_migrations == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          missing=0
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo "::warning::Missing secret: SUPABASE_ACCESS_TOKEN"; missing=1; }
+          test -n "$SUPABASE_DB_PASSWORD" || { echo "::warning::Missing secret: SUPABASE_DB_PASSWORD"; missing=1; }
+          test -n "$SUPABASE_PROJECT_ID" || { echo "::warning::Missing secret: SUPABASE_PROJECT_ID"; missing=1; }
+
+          if [ "$missing" -eq 1 ]; then
+            echo "can_run=false" >> "$GITHUB_OUTPUT"
+            echo "Missing one or more Supabase migration secrets. Skipping migration steps."
+          else
+            echo "can_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Supabase CLI
+        if: (github.event_name == 'push' || github.event.inputs.run_migrations == 'true') && steps.migration_secrets.outputs.can_run == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link existing Supabase project
+        if: (github.event_name == 'push' || github.event.inputs.run_migrations == 'true') && steps.migration_secrets.outputs.can_run == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID"
+
+      - name: Apply Supabase migrations
+        if: (github.event_name == 'push' || github.event.inputs.run_migrations == 'true') && steps.migration_secrets.outputs.can_run == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          supabase db push --dry-run
+          supabase db push
+
+      - name: Validate app deployment secrets
+        id: app_secrets
+        if: github.event_name == 'push' || github.event.inputs.deploy_app == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          missing=0
+          test -n "$VERCEL_TOKEN" || { echo "::warning::Missing secret: VERCEL_TOKEN"; missing=1; }
+          test -n "$VERCEL_ORG_ID" || { echo "::warning::Missing secret: VERCEL_ORG_ID"; missing=1; }
+          test -n "$VERCEL_PROJECT_ID" || { echo "::warning::Missing secret: VERCEL_PROJECT_ID"; missing=1; }
+          test -n "$NEXT_PUBLIC_SUPABASE_URL" || { echo "::warning::Missing secret: NEXT_PUBLIC_SUPABASE_URL"; missing=1; }
+          test -n "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" || { echo "::warning::Missing secret: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"; missing=1; }
+
+          if [ "$missing" -eq 1 ]; then
+            echo "can_run=false" >> "$GITHUB_OUTPUT"
+            echo "Missing one or more app deployment secrets. Skipping Vercel deployment steps."
+          else
+            echo "can_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        if: (github.event_name == 'push' || github.event.inputs.deploy_app == 'true') && steps.app_secrets.outputs.can_run == 'true'
+        run: npm ci
+
+      - name: Build app
+        if: (github.event_name == 'push' || github.event.inputs.deploy_app == 'true') && steps.app_secrets.outputs.can_run == 'true'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run build
+
+      - name: Deploy app to Vercel
+        if: (github.event_name == 'push' || github.event.inputs.deploy_app == 'true') && steps.app_secrets.outputs.can_run == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          npm i -g vercel
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"

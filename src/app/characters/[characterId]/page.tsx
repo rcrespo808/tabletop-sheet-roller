@@ -1,28 +1,39 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { notFound } from "next/navigation";
+import { useMemo } from "react";
+import { useParams } from "next/navigation";
 import { CharacterSheetWorkspace } from "@/components/CharacterSheetWorkspace";
 import { SystemBadge } from "@/components/SystemBadge";
-import { characters, getCharacter } from "@/data/characters";
+import { getCharacter } from "@/data/characters";
+import { loadCustomCharacters } from "@/lib/sheets/customCharacters";
 
-type CharacterPageProps = {
-  params: Promise<{
-    characterId: string;
-  }>;
-};
+export default function CharacterPage() {
+  const params = useParams<{ characterId: string }>();
+  const characterId = params.characterId;
 
-export function generateStaticParams() {
-  return characters.map((character) => ({
-    characterId: character.id
-  }));
-}
-
-export default async function CharacterPage({ params }: CharacterPageProps) {
-  const { characterId } = await params;
-  const character = getCharacter(characterId);
+  const character = useMemo(() => {
+    const seeded = getCharacter(characterId);
+    if (seeded) return seeded;
+    const custom = loadCustomCharacters();
+    return custom.find((entry) => entry.id === characterId);
+  }, [characterId]);
 
   if (!character) {
-    notFound();
+    return (
+      <div className="min-h-screen bg-background px-4 py-16 text-foreground">
+        <div className="mx-auto max-w-2xl rounded-xl border border-slate-700/30 bg-slate-900/40 p-8 text-center">
+          <p className="text-lg font-semibold">Character not found</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Return to the gallery and add/import the character again.
+          </p>
+          <Link className="mt-5 inline-flex rounded-md bg-purple-600 px-4 py-2 text-sm font-semibold" href="/">
+            Back to gallery
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -39,9 +50,7 @@ export default async function CharacterPage({ params }: CharacterPageProps) {
             </Link>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="truncate text-2xl font-bold text-foreground">
-                  {character.name}
-                </h1>
+                <h1 className="truncate text-2xl font-bold text-foreground">{character.name}</h1>
                 <SystemBadge system={character.system} />
               </div>
               {character.subtitle ? (
