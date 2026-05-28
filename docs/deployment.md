@@ -29,13 +29,13 @@ SUPABASE_PROJECT_ID=toogirtxlnsbtvmqcqgw
 
 `SUPABASE_PROJECT_ID` is the project ref from the Supabase URL.
 
-Add this repository variable only after the secrets above are configured:
+Add this repository variable only if you want to disable automatic migrations:
 
 ```env
-SUPABASE_MIGRATIONS_ENABLED=true
+SUPABASE_MIGRATIONS_ENABLED=false
 ```
 
-Without that variable, pushes that touch `supabase/**` will create a skipped migration workflow instead of failing because secrets are not configured yet.
+By default, pushes that touch `supabase/**` run the migration workflow when the Supabase secrets above are configured.
 
 ## Workflows
 

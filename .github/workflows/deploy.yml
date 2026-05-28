@@ -81,7 +81,7 @@ jobs:
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
           supabase db push --dry-run
-          supabase db push
+          supabase db push --yes
 
       - name: Validate app deployment secrets
         id: app_secrets

@@ -29,7 +29,9 @@ env:
 
 jobs:
   migrate:
-    if: github.event_name == 'workflow_dispatch' || vars.SUPABASE_MIGRATIONS_ENABLED == 'true'
+    # Runs on push when this workflow is triggered (supabase/** changes).
+    # Set repository variable SUPABASE_MIGRATIONS_ENABLED=false to disable.
+    if: vars.SUPABASE_MIGRATIONS_ENABLED != 'false'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -54,4 +56,4 @@ jobs:
 
       - name: Apply migrations
         if: github.event_name == 'push' || github.event.inputs.dry_run == 'false'
-        run: supabase db push
+        run: supabase db push --yes
