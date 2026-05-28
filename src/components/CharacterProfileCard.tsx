@@ -6,7 +6,7 @@ import {
   getAvailableSystems,
   getPrimaryImage
 } from "@/data/characters";
-import { getPublicAssetPath } from "@/lib/site";
+import { resolveImageUrl } from "@/lib/site";
 import type { CharacterProfile } from "@/lib/sheets/types";
 import { GlassPanel } from "./GlassPanel";
 import { SystemBadge } from "./SystemBadge";
@@ -38,7 +38,7 @@ export function CharacterProfileCard({ profile }: CharacterProfileCardProps) {
               className="h-full w-full object-cover opacity-60 transition group-hover:opacity-80"
               fill
               sizes="(max-width: 768px) 100vw, 33vw"
-              src={getPublicAssetPath(primaryImage)}
+              src={resolveImageUrl(primaryImage)}
               unoptimized
             />
           ) : (

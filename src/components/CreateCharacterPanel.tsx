@@ -4,7 +4,10 @@ import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { CharacterProfile, GameSystem } from "@/lib/sheets/types";
 import { parseCharacterProfile } from "@/lib/sheets/customCharacters";
+import { applyImageToProfile } from "@/lib/storage/characterImages";
+import type { CharacterImageUploadResult } from "@/lib/storage/characterImages";
 import { GlassPanel } from "./GlassPanel";
+import { ImageUploadField } from "./ImageUploadField";
 
 type CreateCharacterPanelProps = {
   onAdd: (profile: CharacterProfile) => Promise<void> | void;
@@ -32,27 +35,42 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [system, setSystem] = useState<GameSystem>("dnd5e");
-  const [sheetImage, setSheetImage] = useState("/characters/he-zhen/sheet.png");
+  const [portraitImage, setPortraitImage] = useState<string | undefined>();
+  const [sheetImage, setSheetImage] = useState<string | undefined>();
   const [json, setJson] = useState(starterJson);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const newProfile = useMemo<CharacterProfile>(
-    () => ({
+  const newProfile = useMemo<CharacterProfile>(() => {
+    let profile: CharacterProfile = {
       id,
       name,
       defaultSystem: system,
-      portraitImage: sheetImage,
       sheets: {
         [system]: {
           system,
-          sheetImage,
           actions: []
         }
       }
-    }),
-    [id, name, sheetImage, system]
-  );
+    };
+
+    if (portraitImage) {
+      profile = applyImageToProfile(profile, "portrait", portraitImage);
+    }
+    if (sheetImage) {
+      profile = applyImageToProfile(profile, "sheet", sheetImage, system);
+    }
+
+    return profile;
+  }, [id, name, portraitImage, sheetImage, system]);
+
+  async function handlePortraitUpload(result: CharacterImageUploadResult) {
+    setPortraitImage(result.publicUrl);
+  }
+
+  async function handleSheetUpload(result: CharacterImageUploadResult) {
+    setSheetImage(result.publicUrl);
+  }
 
   async function addManualCharacter() {
     setError(null);
@@ -64,6 +82,8 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
     setMessage(`Added ${name}.`);
     setId("");
     setName("");
+    setPortraitImage(undefined);
+    setSheetImage(undefined);
   }
 
   async function importJsonCharacter() {
@@ -93,7 +113,9 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
         >
           <div>
             <h2 className="text-lg font-semibold text-foreground">Create or Import Character</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Add a quick sheet or paste JSON.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Add a quick sheet, upload images, or paste JSON.
+            </p>
           </div>
           <ChevronDown
             className="h-5 w-5 shrink-0 text-muted-foreground transition group-open:rotate-180"
@@ -127,15 +149,30 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
             <option value="dnd5e">D&D 5e</option>
             <option value="nwod">NWoD</option>
           </select>
-          <input
-            className="rounded-md border border-slate-700/30 bg-slate-900/60 p-2 text-sm text-foreground outline-none focus:border-purple-500/50"
-            placeholder="sheet image path"
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <ImageUploadField
+            characterId={id}
+            helperText="Optional gallery portrait"
+            kind="portrait"
+            label="Portrait"
+            onUploaded={handlePortraitUpload}
+            value={portraitImage}
+          />
+          <ImageUploadField
+            characterId={id}
+            helperText="Optional sheet image for the selected system"
+            kind="sheet"
+            label="Sheet Image"
+            onUploaded={handleSheetUpload}
+            system={system}
             value={sheetImage}
-            onChange={(e) => setSheetImage(e.target.value)}
           />
         </div>
+
         <button
-          className="mt-3 rounded-md border border-purple-500/40 bg-purple-500/20 px-4 py-2 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/30"
+          className="mt-4 rounded-md border border-purple-500/40 bg-purple-500/20 px-4 py-2 text-sm font-semibold text-purple-100 transition hover:bg-purple-500/30"
           onClick={addManualCharacter}
           type="button"
         >

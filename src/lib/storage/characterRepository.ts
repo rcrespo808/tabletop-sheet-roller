@@ -12,7 +12,10 @@ import {
   listSupabaseCharacters,
   saveSupabaseCharacter
 } from "@/lib/storage/supabaseCharacterRepository";
+import { deleteCharacterImageAssets, upsertCharacterImageAsset } from "@/lib/storage/characterImageRepository";
+import { isSupabaseStorageUrl, storagePathFromPublicUrl } from "@/lib/storage/characterImageStorage";
 import { isSupabaseConfigured } from "@/lib/storage/supabaseClient";
+import { collectProfileImageUrls } from "@/lib/storage/characterImages";
 import type { StorageMode } from "@/lib/storage/types";
 import type { CharacterProfile } from "@/lib/sheets/types";
 
@@ -38,6 +41,23 @@ function mergeProfiles(primary: CharacterProfile[], fallback: CharacterProfile[]
 function withSeedIfEmpty(profiles: CharacterProfile[]): CharacterProfile[] {
   if (profiles.length > 0) return profiles;
   return [...characterProfiles];
+}
+
+async function syncProfileImageAssets(profile: CharacterProfile): Promise<void> {
+  for (const image of collectProfileImageUrls(profile)) {
+    if (!isSupabaseStorageUrl(image.publicUrl)) continue;
+
+    const storagePath = storagePathFromPublicUrl(image.publicUrl);
+    if (!storagePath) continue;
+
+    await upsertCharacterImageAsset({
+      characterId: profile.id,
+      kind: image.kind,
+      system: image.system,
+      storagePath,
+      publicUrl: image.publicUrl
+    });
+  }
 }
 
 export async function listCharacters(): Promise<CharacterProfile[]> {
@@ -84,6 +104,7 @@ export async function saveCharacter(profile: CharacterProfile): Promise<Characte
   if (isSupabaseConfigured()) {
     try {
       saved = await saveSupabaseCharacter(normalized);
+      await syncProfileImageAssets(saved);
       lastStorageMode = "supabase";
     } catch (error) {
       console.warn("[characterRepository] Supabase save failed, caching locally.", error);
@@ -99,6 +120,7 @@ export async function saveCharacter(profile: CharacterProfile): Promise<Characte
 export async function deleteCharacter(id: string): Promise<void> {
   if (isSupabaseConfigured()) {
     try {
+      await deleteCharacterImageAssets(id);
       await deleteSupabaseCharacter(id);
       lastStorageMode = "supabase";
     } catch (error) {

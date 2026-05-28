@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Maximize2, StickyNote, ZoomIn, ZoomOut } from "lucide-react";
 import { useState } from "react";
-import { getPublicAssetPath } from "@/lib/site";
+import { resolveImageUrl } from "@/lib/site";
 import type { GameSystem, RollLogEntry, SheetAction, SystemSheet } from "@/lib/sheets/types";
 import { ActionButton } from "./ActionButton";
 import { GlassPanel } from "./GlassPanel";
@@ -26,7 +26,7 @@ export function CharacterSheetViewer({
   const [failed, setFailed] = useState(false);
   const [zoom, setZoom] = useState(100);
   const sheetImage = sheet.sheetImage;
-  const sheetImagePath = sheetImage ? getPublicAssetPath(sheetImage) : null;
+  const sheetImagePath = sheetImage ? resolveImageUrl(sheetImage) : null;
   const hotspotActions = actions.filter((action) => action.hotspot);
 
   function zoomOut() {

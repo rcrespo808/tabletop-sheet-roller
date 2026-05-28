@@ -7,7 +7,7 @@ import { CharacterHeader } from "@/components/CharacterHeader";
 import { CharacterSheetWorkspace } from "@/components/CharacterSheetWorkspace";
 import { GlassPanel } from "@/components/GlassPanel";
 import { getAvailableSystems } from "@/data/characters";
-import { resolveCharacterLookup } from "@/lib/storage/characterRepository";
+import { resolveCharacterLookup, saveCharacter } from "@/lib/storage/characterRepository";
 import type { CharacterProfile, GameSystem } from "@/lib/sheets/types";
 
 export default function CharacterPage() {
@@ -54,6 +54,11 @@ function CharacterPageContent({ characterId }: { characterId: string }) {
     setSystemByCharacter((current) => ({ ...current, [characterId]: system }));
   }
 
+  async function handleProfileChange(nextProfile: CharacterProfile) {
+    const saved = await saveCharacter(nextProfile);
+    setProfile(saved);
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background px-4 py-16 text-foreground">
@@ -93,6 +98,7 @@ function CharacterPageContent({ characterId }: { characterId: string }) {
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <CharacterSheetWorkspace
+          onProfileChange={handleProfileChange}
           profile={profile}
           selectedSystem={activeSystem}
           key={`${profile.id}-${activeSystem}`}

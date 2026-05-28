@@ -7,3 +7,18 @@ export function getPublicAssetPath(path: string): string {
 
   return `${publicBasePath}${path}`;
 }
+
+export function resolveImageUrl(path?: string | null): string {
+  if (!path) return "";
+
+  if (
+    path.startsWith("http://") ||
+    path.startsWith("https://") ||
+    path.startsWith("data:") ||
+    path.startsWith("blob:")
+  ) {
+    return path;
+  }
+
+  return getPublicAssetPath(path);
+}

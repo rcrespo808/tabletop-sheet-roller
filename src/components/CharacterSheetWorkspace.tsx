@@ -4,6 +4,7 @@ import { useState } from "react";
 import { getSystemSheet } from "@/data/characters";
 import type { CharacterProfile, GameSystem, RollLogEntry } from "@/lib/sheets/types";
 import { getCustomActions } from "@/lib/sheets/actions";
+import { CharacterImagesPanel } from "./CharacterImagesPanel";
 import { CharacterSheetViewer } from "./CharacterSheetViewer";
 import { CharacterStatsPanel } from "./CharacterStatsPanel";
 import { DiceRoller } from "./DiceRoller";
@@ -14,11 +15,13 @@ import { RollLog } from "./RollLog";
 type CharacterSheetWorkspaceProps = {
   profile: CharacterProfile;
   selectedSystem: GameSystem;
+  onProfileChange?: (profile: CharacterProfile) => void | Promise<void>;
 };
 
 export function CharacterSheetWorkspace({
   profile,
-  selectedSystem
+  selectedSystem,
+  onProfileChange
 }: CharacterSheetWorkspaceProps) {
   const [entries, setEntries] = useState<RollLogEntry[]>([]);
   const sheet = getSystemSheet(profile, selectedSystem);
@@ -53,6 +56,13 @@ export function CharacterSheetWorkspace({
         <CharacterStatsPanel characterName={profile.name} onRoll={addEntry} sheet={sheet} />
       </main>
       <aside className="space-y-6">
+        {onProfileChange ? (
+          <CharacterImagesPanel
+            onProfileChange={onProfileChange}
+            profile={profile}
+            selectedSystem={selectedSystem}
+          />
+        ) : null}
         <QuickActionsPanel
           characterName={profile.name}
           onRoll={addEntry}
