@@ -7,7 +7,7 @@ import { parseCharacterProfile } from "@/lib/sheets/customCharacters";
 import { GlassPanel } from "./GlassPanel";
 
 type CreateCharacterPanelProps = {
-  onAdd: (profile: CharacterProfile) => void;
+  onAdd: (profile: CharacterProfile) => Promise<void> | void;
 };
 
 const starterJson = `{
@@ -54,19 +54,19 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
     [id, name, sheetImage, system]
   );
 
-  function addManualCharacter() {
+  async function addManualCharacter() {
     setError(null);
     if (!id.trim() || !name.trim()) {
       setError("ID and name are required.");
       return;
     }
-    onAdd(newProfile);
+    await onAdd(newProfile);
     setMessage(`Added ${name}.`);
     setId("");
     setName("");
   }
 
-  function importJsonCharacter() {
+  async function importJsonCharacter() {
     setError(null);
     try {
       const parsed = JSON.parse(json);
@@ -77,7 +77,7 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
         );
         return;
       }
-      onAdd(profile);
+      await onAdd(profile);
       setMessage(`Imported ${profile.name}.`);
     } catch {
       setError("JSON is invalid — check syntax and try again.");

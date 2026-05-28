@@ -1,41 +1,70 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { CharacterHeader } from "@/components/CharacterHeader";
 import { CharacterSheetWorkspace } from "@/components/CharacterSheetWorkspace";
+import { GlassPanel } from "@/components/GlassPanel";
 import { getAvailableSystems } from "@/data/characters";
-import { resolveCharacter } from "@/lib/sheets/customCharacters";
-import type { GameSystem } from "@/lib/sheets/types";
+import { resolveCharacterLookup } from "@/lib/storage/characterRepository";
+import type { CharacterProfile, GameSystem } from "@/lib/sheets/types";
 
 export default function CharacterPage() {
   const params = useParams<{ characterId: string }>();
-  const characterId = params.characterId;
+  return <CharacterPageContent characterId={params.characterId} key={params.characterId} />;
+}
 
-  const lookup = useMemo(() => resolveCharacter(characterId), [characterId]);
-
+function CharacterPageContent({ characterId }: { characterId: string }) {
+  const [profile, setProfile] = useState<CharacterProfile | null>(null);
+  const [initialSystem, setInitialSystem] = useState<GameSystem | undefined>();
+  const [loading, setLoading] = useState(true);
   const [systemByCharacter, setSystemByCharacter] = useState<Record<string, GameSystem>>({});
 
+  useEffect(() => {
+    let cancelled = false;
+
+    resolveCharacterLookup(characterId).then((lookup) => {
+      if (cancelled) return;
+      setProfile(lookup?.profile ?? null);
+      setInitialSystem(lookup?.initialSystem);
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [characterId]);
+
   const activeSystem = useMemo(() => {
-    if (!lookup) return null;
+    if (!profile) return null;
 
     const userPick = systemByCharacter[characterId];
-    if (userPick && lookup.profile.sheets[userPick]) {
+    if (userPick && profile.sheets[userPick]) {
       return userPick;
     }
-    if (lookup.initialSystem && lookup.profile.sheets[lookup.initialSystem]) {
-      return lookup.initialSystem;
+    if (initialSystem && profile.sheets[initialSystem]) {
+      return initialSystem;
     }
-    const systems = getAvailableSystems(lookup.profile);
-    return lookup.profile.defaultSystem ?? systems[0] ?? null;
-  }, [characterId, lookup, systemByCharacter]);
+    const systems = getAvailableSystems(profile);
+    return profile.defaultSystem ?? systems[0] ?? null;
+  }, [characterId, initialSystem, profile, systemByCharacter]);
 
   function handleSystemChange(system: GameSystem) {
     setSystemByCharacter((current) => ({ ...current, [characterId]: system }));
   }
 
-  if (!lookup || !activeSystem) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background px-4 py-16 text-foreground">
+        <GlassPanel level="secondary" className="mx-auto max-w-2xl p-8 text-center">
+          <p className="text-sm text-muted-foreground">Loading character…</p>
+        </GlassPanel>
+      </div>
+    );
+  }
+
+  if (!profile || !activeSystem) {
     return (
       <div className="min-h-screen bg-background px-4 py-16 text-foreground">
         <div className="mx-auto max-w-2xl rounded-xl border border-slate-700/30 bg-slate-900/40 p-8 text-center">
@@ -53,8 +82,6 @@ export default function CharacterPage() {
       </div>
     );
   }
-
-  const { profile } = lookup;
 
   return (
     <div className="min-h-screen bg-background text-foreground">

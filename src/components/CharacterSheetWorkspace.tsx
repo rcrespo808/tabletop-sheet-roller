@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { getSystemSheet } from "@/data/characters";
 import type { CharacterProfile, GameSystem, RollLogEntry } from "@/lib/sheets/types";
-import { ActionButton } from "./ActionButton";
+import { getCustomActions } from "@/lib/sheets/actions";
 import { CharacterSheetViewer } from "./CharacterSheetViewer";
+import { CharacterStatsPanel } from "./CharacterStatsPanel";
 import { DiceRoller } from "./DiceRoller";
 import { GlassPanel } from "./GlassPanel";
+import { QuickActionsPanel } from "./QuickActionsPanel";
 import { RollLog } from "./RollLog";
 
 type CharacterSheetWorkspaceProps = {
@@ -36,37 +38,27 @@ export function CharacterSheetWorkspace({
     );
   }
 
+  const customActions = getCustomActions(sheet);
+
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
-      <main>
+      <main className="space-y-6">
         <CharacterSheetViewer
-          actions={sheet.actions}
+          actions={customActions}
           characterName={profile.name}
           onRoll={addEntry}
           selectedSystem={selectedSystem}
           sheet={sheet}
         />
+        <CharacterStatsPanel characterName={profile.name} onRoll={addEntry} sheet={sheet} />
       </main>
       <aside className="space-y-6">
-        <GlassPanel level="secondary" glow="medium" className="p-5">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Actions</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {profile.name} · {sheet.label ?? selectedSystem}
-            </p>
-          </div>
-          <div className="mt-4 space-y-3">
-            {sheet.actions.map((action) => (
-              <ActionButton
-                action={action}
-                characterName={profile.name}
-                key={action.id}
-                onRoll={addEntry}
-                selectedSystem={selectedSystem}
-              />
-            ))}
-          </div>
-        </GlassPanel>
+        <QuickActionsPanel
+          characterName={profile.name}
+          onRoll={addEntry}
+          selectedSystem={selectedSystem}
+          sheet={sheet}
+        />
         <DiceRoller
           characterName={profile.name}
           defaultSystem={selectedSystem}

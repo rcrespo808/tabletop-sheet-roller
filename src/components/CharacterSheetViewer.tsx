@@ -135,6 +135,7 @@ export function CharacterSheetViewer({
                     compact
                     onRoll={onRoll}
                     selectedSystem={selectedSystem}
+                    sheet={sheet}
                   />
                 </div>
               )}

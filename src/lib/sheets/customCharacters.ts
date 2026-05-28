@@ -37,12 +37,15 @@ export function normalizeCharacterProfile(profile: CharacterProfile): CharacterP
   return {
     ...profile,
     id: profile.id.trim(),
+    ownerLabel: profile.ownerLabel?.trim(),
     name: profile.name.trim(),
     subtitle: profile.subtitle?.trim(),
     concept: profile.concept?.trim(),
     portraitImage: profile.portraitImage?.trim(),
     defaultSystem: profile.defaultSystem,
-    sheets
+    sheets,
+    createdAt: profile.createdAt,
+    updatedAt: profile.updatedAt
   };
 }
 
@@ -60,6 +63,18 @@ function parseSystemSheet(input: unknown, system: GameSystem): SystemSheet | nul
     label: typeof candidate.label === "string" ? candidate.label : undefined,
     levelLabel: typeof candidate.levelLabel === "string" ? candidate.levelLabel : undefined,
     sheetImage: typeof candidate.sheetImage === "string" ? candidate.sheetImage : undefined,
+    attributes:
+      candidate.attributes && typeof candidate.attributes === "object"
+        ? (candidate.attributes as SystemSheet["attributes"])
+        : undefined,
+    stats:
+      candidate.stats && typeof candidate.stats === "object"
+        ? (candidate.stats as SystemSheet["stats"])
+        : undefined,
+    skills:
+      candidate.skills && typeof candidate.skills === "object"
+        ? (candidate.skills as SystemSheet["skills"])
+        : undefined,
     actions: ensureActionIds(candidate.actions as Omit<SheetAction, "id">[]),
     metadata:
       candidate.metadata && typeof candidate.metadata === "object"
@@ -121,12 +136,15 @@ export function parseCharacterProfile(input: unknown): CharacterProfile | null {
   return normalizeCharacterProfile({
     id: candidate.id,
     name: candidate.name,
+    ownerLabel: typeof candidate.ownerLabel === "string" ? candidate.ownerLabel : undefined,
     subtitle: typeof candidate.subtitle === "string" ? candidate.subtitle : undefined,
     concept: typeof candidate.concept === "string" ? candidate.concept : undefined,
     portraitImage:
       typeof candidate.portraitImage === "string" ? candidate.portraitImage : undefined,
     defaultSystem,
-    sheets
+    sheets,
+    createdAt: typeof candidate.createdAt === "string" ? candidate.createdAt : undefined,
+    updatedAt: typeof candidate.updatedAt === "string" ? candidate.updatedAt : undefined
   });
 }
 

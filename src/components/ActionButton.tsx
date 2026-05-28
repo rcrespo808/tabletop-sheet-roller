@@ -5,31 +5,19 @@ import { BookOpen, ChevronDown, Shield, StickyNote, Zap } from "lucide-react";
 import { createRollLogEntry } from "@/lib/dice/log";
 import { rollDndExpression } from "@/lib/dice/dnd";
 import { rollNwodPool } from "@/lib/dice/nwod";
-import type { GameSystem, RollLogEntry, SheetAction } from "@/lib/sheets/types";
+import { getActionExpressionPreview } from "@/lib/sheets/actions";
+import { resolveDndCheckAction } from "@/lib/sheets/dnd";
+import { resolveNwodCheckPool } from "@/lib/sheets/nwod";
+import type { GameSystem, RollLogEntry, SheetAction, SystemSheet } from "@/lib/sheets/types";
 
 type ActionButtonProps = {
   action: SheetAction;
+  sheet: SystemSheet;
   characterName: string;
   selectedSystem: GameSystem;
   onRoll: (entry: RollLogEntry) => void;
   compact?: boolean;
 };
-
-function getActionExpression(action: SheetAction): string {
-  if (action.type === "dnd-roll") {
-    return action.roll;
-  }
-
-  if (action.type === "note") {
-    return "Note";
-  }
-
-  const again = action.again === undefined ? 10 : action.again;
-  const againText = again === null ? "no-again" : `${again}-again`;
-  return `${action.pool}d10 ${againText}${action.rote ? " rote" : ""}${
-    action.chanceDie ? " chance" : ""
-  }`;
-}
 
 function getActionVisual(action: SheetAction) {
   const label = action.label.toLowerCase();
@@ -61,7 +49,7 @@ function getActionVisual(action: SheetAction) {
     };
   }
 
-  if (action.type === "dnd-roll") {
+  if (action.type === "dnd-roll" || action.type === "dnd-check") {
     return {
       icon: Zap,
       className: "border-red-500/40 bg-red-500/15 text-red-100 hover:bg-red-500/25"
@@ -76,6 +64,7 @@ function getActionVisual(action: SheetAction) {
 
 export function ActionButton({
   action,
+  sheet,
   characterName,
   selectedSystem,
   onRoll,
@@ -85,6 +74,7 @@ export function ActionButton({
   const [noteOpen, setNoteOpen] = useState(false);
   const visual = getActionVisual(action);
   const Icon = visual.icon;
+  const expressionPreview = getActionExpressionPreview(sheet, action);
 
   function handleClick() {
     setError(null);
@@ -104,6 +94,45 @@ export function ActionButton({
             system: "dnd5e",
             expression: result.expression,
             resultText: `Total ${result.total}`,
+            details: result.details
+          })
+        );
+        return;
+      }
+
+      if (action.type === "dnd-check") {
+        const roll = resolveDndCheckAction(sheet, action);
+        const result = rollDndExpression(roll);
+        onRoll(
+          createRollLogEntry({
+            characterName,
+            actionLabel: action.label,
+            system: "dnd5e",
+            expression: result.expression,
+            resultText: `Total ${result.total}`,
+            details: result.details
+          })
+        );
+        return;
+      }
+
+      if (action.type === "nwod-check") {
+        const pool = resolveNwodCheckPool(sheet, action);
+        const result = rollNwodPool({
+          pool,
+          again: action.again,
+          rote: action.rote,
+          chanceDie: action.chanceDie
+        });
+        onRoll(
+          createRollLogEntry({
+            characterName,
+            actionLabel: action.label,
+            system: "nwod",
+            expression: result.expression,
+            resultText: result.dramaticFailure
+              ? "Dramatic failure"
+              : `${result.successes} ${result.successes === 1 ? "success" : "successes"}`,
             details: result.details
           })
         );
@@ -159,7 +188,7 @@ export function ActionButton({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">{action.label}</span>
-          <span className="mt-1 block text-xs opacity-75">{getActionExpression(action)}</span>
+          <span className="mt-1 block text-xs opacity-75">{expressionPreview}</span>
           {action.type !== "note" && action.notes ? (
             <span className="mt-2 block text-xs leading-5 opacity-70">{action.notes}</span>
           ) : null}
