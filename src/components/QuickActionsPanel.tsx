@@ -73,7 +73,7 @@ export function QuickActionsPanel({
           onRoll={onRoll}
           selectedSystem={selectedSystem}
           sheet={sheet}
-          title="Custom Actions"
+          title={selectedSystem === "nwod" ? "Powers / Custom" : "Custom Actions"}
         />
       </div>
     </GlassPanel>

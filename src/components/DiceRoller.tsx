@@ -3,11 +3,13 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { Dices } from "lucide-react";
-import { rollDndExpression } from "@/lib/dice/dnd";
+import { rollDndExpression, rollDndWithAdvantage } from "@/lib/dice/dnd";
 import { createRollLogEntry } from "@/lib/dice/log";
 import { rollNwodPool } from "@/lib/dice/nwod";
+import type { DndRollMode } from "@/lib/dice/dnd";
 import type { GameSystem, RollLogEntry } from "@/lib/sheets/types";
 import type { NwodAgain } from "@/lib/dice/types";
+import { formatDndRollLog, formatNwodRollLog } from "@/lib/sheets/rollAction";
 import { GlassPanel } from "./GlassPanel";
 
 type DiceRollerProps = {
@@ -23,6 +25,7 @@ export function DiceRoller({
 }: DiceRollerProps) {
   const [system, setSystem] = useState<GameSystem>(defaultSystem);
   const [dndExpression, setDndExpression] = useState("1d20+5");
+  const [dndRollMode, setDndRollMode] = useState<DndRollMode>("normal");
   const [pool, setPool] = useState(6);
   const [again, setAgain] = useState<NwodAgain>(10);
   const [rote, setRote] = useState(false);
@@ -35,31 +38,41 @@ export function DiceRoller({
 
     try {
       if (system === "dnd5e") {
-        const result = rollDndExpression(dndExpression);
+        const result =
+          dndRollMode === "normal"
+            ? rollDndExpression(dndExpression)
+            : rollDndWithAdvantage(dndExpression, dndRollMode);
+        const formatted = formatDndRollLog(result, dndRollMode);
         onRoll(
           createRollLogEntry({
+            kind: "roll",
             characterName,
             actionLabel: "Manual Roll",
             system,
             expression: result.expression,
-            resultText: `Total ${result.total}`,
-            details: result.details
+            ...formatted
           })
         );
         return;
       }
 
-      const result = rollNwodPool({ pool, again, rote, chanceDie });
+      const effectivePool = chanceDie || pool <= 0 ? 0 : pool;
+      const result = rollNwodPool({
+        pool: effectivePool,
+        again,
+        rote,
+        chanceDie: chanceDie || pool <= 0
+      });
+      const label = chanceDie || pool <= 0 ? "Chance Die (manual)" : `Manual pool ${pool}`;
+      const formatted = formatNwodRollLog(label, effectivePool, result);
       onRoll(
         createRollLogEntry({
+          kind: "roll",
           characterName,
           actionLabel: "Manual Roll",
           system,
-          expression: result.expression,
-          resultText: result.dramaticFailure
-            ? "Dramatic failure"
-            : `${result.successes} ${result.successes === 1 ? "success" : "successes"}`,
-          details: result.details
+          expression: label,
+          ...formatted
         })
       );
     } catch (rollError) {
@@ -100,23 +113,42 @@ export function DiceRoller({
         </div>
 
         {system === "dnd5e" ? (
-          <label className="block">
-            <span className="text-xs font-semibold uppercase text-muted-foreground">
-              Expression
-            </span>
-            <input
-              className="mt-2 h-11 w-full rounded-lg border border-slate-700/30 bg-slate-900/50 px-3 text-sm text-foreground outline-none transition placeholder:text-slate-600 focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20"
-              onChange={(event) => setDndExpression(event.target.value)}
-              placeholder="1d20+8"
-              value={dndExpression}
-            />
-          </label>
-        ) : (
-          <div className="space-y-4">
+          <>
             <label className="block">
               <span className="text-xs font-semibold uppercase text-muted-foreground">
-                Pool
+                Expression
               </span>
+              <input
+                className="mt-2 h-11 w-full rounded-lg border border-slate-700/30 bg-slate-900/50 px-3 text-sm text-foreground outline-none transition placeholder:text-slate-600 focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20"
+                onChange={(event) => setDndExpression(event.target.value)}
+                placeholder="1d20+8"
+                value={dndExpression}
+              />
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["normal", "advantage", "disadvantage"] as DndRollMode[]).map((mode) => (
+                <button
+                  className={`h-9 rounded-md text-xs font-semibold capitalize transition ${
+                    dndRollMode === mode
+                      ? "border border-amber-500/40 bg-amber-500/25 text-amber-100"
+                      : "border border-slate-700/30 text-muted-foreground hover:bg-white/10"
+                  }`}
+                  key={mode}
+                  onClick={() => setDndRollMode(mode)}
+                  type="button"
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Use Build Pool on the character sheet when available. Manual mode for ad-hoc pools.
+            </p>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">Pool</span>
               <input
                 className="mt-2 h-11 w-full rounded-lg border border-slate-700/30 bg-slate-900/50 px-3 text-sm text-foreground outline-none transition focus:border-cyan-500/60 focus:ring-2 focus:ring-cyan-500/20"
                 min={0}
@@ -125,6 +157,9 @@ export function DiceRoller({
                 value={pool}
               />
             </label>
+            {pool <= 0 ? (
+              <p className="text-xs text-cyan-200">Pool ≤ 0 — rolling chance die.</p>
+            ) : null}
             <label className="block">
               <span className="text-xs font-semibold uppercase text-muted-foreground">
                 Again Rule
@@ -160,7 +195,7 @@ export function DiceRoller({
                   onChange={(event) => setChanceDie(event.target.checked)}
                   type="checkbox"
                 />
-                Chance
+                Force chance
               </label>
             </div>
           </div>

@@ -9,6 +9,7 @@ export function createRollLogEntry(input: RollLogInput): RollLogEntry {
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
   return {
+    kind: input.kind ?? "roll",
     ...input,
     id,
     createdAt: new Date().toISOString()

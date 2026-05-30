@@ -110,60 +110,85 @@ export function resolveNwodCheckPool(
   return getNwodPool(sheet, action.attribute, action.skill, action.modifier ?? 0);
 }
 
-export function deriveNwodQuickActions(sheet: SystemSheet): SheetAction[] {
-  if (!isNwodSheet(sheet) || !sheet.attributes) return [];
+export function deriveNwodQuickActions(_sheet: SystemSheet): SheetAction[] {
+  return [];
+}
 
-  const actions: SheetAction[] = [];
-  const skills = sheet.skills as NwodSkills | undefined;
+const NWOD_MENTAL_ATTRIBUTES: NwodAttributeKey[] = ["intelligence", "wits", "resolve"];
+const NWOD_PHYSICAL_ATTRIBUTES: NwodAttributeKey[] = ["strength", "dexterity", "stamina"];
+const NWOD_SOCIAL_ATTRIBUTES: NwodAttributeKey[] = ["presence", "manipulation", "composure"];
 
-  if (skills) {
-    for (const skill of Object.keys(skills) as NwodSkillKey[]) {
-      const attribute = NWOD_SKILL_DEFAULT_ATTRIBUTE[skill];
-      actions.push({
-        id: `derived-nwod-${attribute}-${skill}`,
-        type: "nwod-check",
-        label: `${NWOD_ATTRIBUTE_LABELS[attribute]} + ${NWOD_SKILL_LABELS[skill]}`,
-        attribute,
-        skill,
-        again: 10,
-        source: "derived"
-      });
-    }
+export type NwodSkillCategory = "mental" | "physical" | "social";
+
+export function getNwodSkillCategory(skill: NwodSkillKey): NwodSkillCategory {
+  const attribute = NWOD_SKILL_DEFAULT_ATTRIBUTE[skill];
+  if (NWOD_MENTAL_ATTRIBUTES.includes(attribute)) return "mental";
+  if (NWOD_PHYSICAL_ATTRIBUTES.includes(attribute)) return "physical";
+  return "social";
+}
+
+export const NWOD_SKILL_CATEGORY_LABELS: Record<NwodSkillCategory, string> = {
+  mental: "Mental",
+  physical: "Physical",
+  social: "Social"
+};
+
+export function groupNwodSkills(skills: NwodSkills): Record<NwodSkillCategory, NwodSkillKey[]> {
+  const grouped: Record<NwodSkillCategory, NwodSkillKey[]> = {
+    mental: [],
+    physical: [],
+    social: []
+  };
+
+  for (const skill of Object.keys(skills) as NwodSkillKey[]) {
+    grouped[getNwodSkillCategory(skill)].push(skill);
   }
 
-  const stats = sheet.stats as NwodStats | undefined;
-  if (typeof stats?.initiative === "number") {
-    actions.push({
-      id: "derived-nwod-initiative",
-      type: "nwod-pool",
-      label: "Initiative",
-      pool: stats.initiative,
-      again: 10,
-      source: "derived"
-    });
-  } else {
-    actions.push({
-      id: "derived-nwod-initiative-wits",
-      type: "nwod-check",
-      label: "Initiative (Wits + Composure)",
-      attribute: "wits",
-      modifier: sheet.attributes.composure ?? 0,
-      again: 10,
-      source: "derived"
-    });
+  for (const category of Object.keys(grouped) as NwodSkillCategory[]) {
+    grouped[category].sort((left, right) =>
+      NWOD_SKILL_LABELS[left].localeCompare(NWOD_SKILL_LABELS[right])
+    );
   }
 
-  if (typeof stats?.willpower === "number" || typeof stats?.maxWillpower === "number") {
-    const current = stats?.willpower ?? stats?.maxWillpower ?? 0;
-    const max = stats?.maxWillpower ?? stats?.willpower ?? 0;
-    actions.push({
-      id: "derived-nwod-willpower",
-      type: "note",
-      label: "Willpower",
-      notes: `Willpower ${current}/${max}`,
-      source: "derived"
-    });
-  }
+  return grouped;
+}
 
-  return actions;
+export type BuildNwodPoolExpressionArgs = {
+  sheet: SystemSheet;
+  attribute: NwodAttributeKey;
+  skill?: NwodSkillKey;
+  modifier?: number;
+};
+
+function formatNwodPoolLabel(
+  attribute: NwodAttributeKey,
+  skill?: NwodSkillKey,
+  modifier = 0
+): string {
+  const segments = [NWOD_ATTRIBUTE_LABELS[attribute]];
+  if (skill) segments.push(NWOD_SKILL_LABELS[skill]);
+
+  let label = segments.join(" + ");
+  if (modifier > 0) label += ` + ${modifier}`;
+  if (modifier < 0) label += ` - ${Math.abs(modifier)}`;
+  return label;
+}
+
+export function buildNwodPoolExpression(args: BuildNwodPoolExpressionArgs): {
+  label: string;
+  pool: number;
+  chanceDie: boolean;
+} {
+  const { sheet, attribute, skill, modifier = 0 } = args;
+  const attributeDots = getNwodAttributes(sheet)?.[attribute] ?? 0;
+  const skillDots = skill ? (getNwodSkills(sheet)?.[skill] ?? 0) : 0;
+  const rawPool = attributeDots + skillDots + modifier;
+  const chanceDie = rawPool <= 0;
+  const baseLabel = formatNwodPoolLabel(attribute, skill, modifier);
+
+  return {
+    label: chanceDie ? `Chance Die: ${baseLabel}` : baseLabel,
+    pool: Math.max(0, rawPool),
+    chanceDie
+  };
 }

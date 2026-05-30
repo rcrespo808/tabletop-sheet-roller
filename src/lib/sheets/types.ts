@@ -186,14 +186,17 @@ export type CharacterProfile = {
   updatedAt?: string;
 };
 
+export type RollLogEntryKind = "roll" | "note" | "system";
+
 export type RollLogEntry = {
   id: string;
+  kind?: RollLogEntryKind;
   characterName?: string;
   actionLabel?: string;
-  system: GameSystem;
-  expression: string;
+  system?: GameSystem;
+  expression?: string;
   resultText: string;
-  details: string;
+  details?: string;
   createdAt: string;
 };
 

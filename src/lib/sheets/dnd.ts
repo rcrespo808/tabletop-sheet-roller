@@ -10,13 +10,34 @@ import type {
 } from "@/lib/sheets/types";
 import { isDnd5eSheet } from "@/lib/sheets/types";
 
-const ABILITY_LABELS: Record<AbilityKey, string> = {
-  str: "Strength",
-  dex: "Dexterity",
-  con: "Constitution",
-  int: "Intelligence",
-  wis: "Wisdom",
-  cha: "Charisma"
+export const DND_SKILL_ORDER: Dnd5eSkillKey[] = [
+  "acrobatics",
+  "animalHandling",
+  "arcana",
+  "athletics",
+  "deception",
+  "history",
+  "insight",
+  "intimidation",
+  "investigation",
+  "medicine",
+  "nature",
+  "perception",
+  "performance",
+  "persuasion",
+  "religion",
+  "sleightOfHand",
+  "stealth",
+  "survival"
+];
+
+export const DND_ABILITY_SHORT_LABELS: Record<AbilityKey, string> = {
+  str: "STR",
+  dex: "DEX",
+  con: "CON",
+  int: "INT",
+  wis: "WIS",
+  cha: "CHA"
 };
 
 export const DND_SKILL_ABILITIES: Record<Dnd5eSkillKey, AbilityKey> = {
@@ -133,74 +154,6 @@ export function resolveDndCheckAction(sheet: SystemSheet, action: Extract<SheetA
   return buildDndCheckRoll(bonus);
 }
 
-export function deriveDndQuickActions(sheet: SystemSheet): SheetAction[] {
-  if (!isDnd5eSheet(sheet) || !sheet.attributes) return [];
-
-  const actions: SheetAction[] = [];
-  const abilities = Object.keys(ABILITY_LABELS) as AbilityKey[];
-
-  for (const ability of abilities) {
-    actions.push({
-      id: `derived-dnd-check-${ability}`,
-      type: "dnd-check",
-      label: `${ABILITY_LABELS[ability]} Check`,
-      ability,
-      source: "derived"
-    });
-    actions.push({
-      id: `derived-dnd-save-${ability}`,
-      type: "dnd-check",
-      label: `${ABILITY_LABELS[ability]} Save`,
-      ability,
-      save: true,
-      source: "derived"
-    });
-  }
-
-  const skills = sheet.skills as Dnd5eSkills | undefined;
-  if (skills) {
-    for (const skill of Object.keys(skills) as Dnd5eSkillKey[]) {
-      actions.push({
-        id: `derived-dnd-skill-${skill}`,
-        type: "dnd-check",
-        label: DND_SKILL_LABELS[skill],
-        ability: skills[skill]?.ability ?? DND_SKILL_ABILITIES[skill],
-        skill,
-        source: "derived"
-      });
-    }
-  }
-
-  const stats = sheet.stats as Dnd5eStats | undefined;
-  if (typeof stats?.initiativeBonus === "number") {
-    actions.push({
-      id: "derived-dnd-initiative",
-      type: "dnd-roll",
-      label: "Initiative",
-      roll: buildDndCheckRoll(stats.initiativeBonus),
-      source: "derived"
-    });
-  }
-
-  if (typeof stats?.spellAttackBonus === "number") {
-    actions.push({
-      id: "derived-dnd-spell-attack",
-      type: "dnd-roll",
-      label: "Spell Attack",
-      roll: buildDndCheckRoll(stats.spellAttackBonus),
-      source: "derived"
-    });
-  }
-
-  if (typeof stats?.spellSaveDc === "number") {
-    actions.push({
-      id: "derived-dnd-spell-dc",
-      type: "note",
-      label: "Spell Save DC",
-      notes: `Spell save DC ${stats.spellSaveDc}`,
-      source: "derived"
-    });
-  }
-
-  return actions;
+export function deriveDndQuickActions(_sheet: SystemSheet): SheetAction[] {
+  return [];
 }

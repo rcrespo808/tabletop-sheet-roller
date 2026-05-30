@@ -106,9 +106,9 @@ export function toSupabaseRollLogInsert(
     character_id: entry.characterId ?? null,
     character_name: entry.characterName ?? null,
     action_label: entry.actionLabel ?? null,
-    system: entry.system,
-    expression: entry.expression,
+    system: entry.system ?? "dnd5e",
+    expression: entry.expression ?? entry.actionLabel ?? "",
     result_text: entry.resultText,
-    details: entry.details
+    details: entry.details ?? ""
   };
 }

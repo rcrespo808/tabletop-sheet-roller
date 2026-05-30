@@ -2,12 +2,8 @@
 
 import { useState } from "react";
 import { BookOpen, ChevronDown, Shield, StickyNote, Zap } from "lucide-react";
-import { createRollLogEntry } from "@/lib/dice/log";
-import { rollDndExpression } from "@/lib/dice/dnd";
-import { rollNwodPool } from "@/lib/dice/nwod";
 import { getActionExpressionPreview } from "@/lib/sheets/actions";
-import { resolveDndCheckAction } from "@/lib/sheets/dnd";
-import { resolveNwodCheckPool } from "@/lib/sheets/nwod";
+import { executeSheetAction } from "@/lib/sheets/rollAction";
 import type { GameSystem, RollLogEntry, SheetAction, SystemSheet } from "@/lib/sheets/types";
 
 type ActionButtonProps = {
@@ -79,105 +75,37 @@ export function ActionButton({
   function handleClick() {
     setError(null);
 
-    if (action.type === "note") {
-      setNoteOpen((current) => !current);
-      return;
-    }
-
     try {
-      if (action.type === "dnd-roll") {
-        const result = rollDndExpression(action.roll);
-        onRoll(
-          createRollLogEntry({
-            characterName,
-            actionLabel: action.label,
-            system: "dnd5e",
-            expression: result.expression,
-            resultText: `Total ${result.total}`,
-            details: result.details
-          })
-        );
-        return;
-      }
+      const entry = executeSheetAction(sheet, action, characterName, selectedSystem);
+      onRoll(entry);
 
-      if (action.type === "dnd-check") {
-        const roll = resolveDndCheckAction(sheet, action);
-        const result = rollDndExpression(roll);
-        onRoll(
-          createRollLogEntry({
-            characterName,
-            actionLabel: action.label,
-            system: "dnd5e",
-            expression: result.expression,
-            resultText: `Total ${result.total}`,
-            details: result.details
-          })
-        );
-        return;
+      if (action.type === "note") {
+        setNoteOpen((current) => !current);
       }
-
-      if (action.type === "nwod-check") {
-        const pool = resolveNwodCheckPool(sheet, action);
-        const result = rollNwodPool({
-          pool,
-          again: action.again,
-          rote: action.rote,
-          chanceDie: action.chanceDie
-        });
-        onRoll(
-          createRollLogEntry({
-            characterName,
-            actionLabel: action.label,
-            system: "nwod",
-            expression: result.expression,
-            resultText: result.dramaticFailure
-              ? "Dramatic failure"
-              : `${result.successes} ${result.successes === 1 ? "success" : "successes"}`,
-            details: result.details
-          })
-        );
-        return;
-      }
-
-      const result = rollNwodPool({
-        pool: action.pool,
-        again: action.again,
-        rote: action.rote,
-        chanceDie: action.chanceDie
-      });
-      onRoll(
-        createRollLogEntry({
-          characterName,
-          actionLabel: action.label,
-          system: "nwod",
-          expression: result.expression,
-          resultText: result.dramaticFailure
-            ? "Dramatic failure"
-            : `${result.successes} ${result.successes === 1 ? "success" : "successes"}`,
-          details: result.details
-        })
-      );
     } catch (rollError) {
-      setError(rollError instanceof Error ? rollError.message : "Roll failed.");
+      setError(rollError instanceof Error ? rollError.message : "Action failed.");
     }
   }
 
   if (compact) {
     return (
-      <button
-        className={`flex h-9 w-9 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition ${visual.className}`}
-        onClick={handleClick}
-        title={action.label}
-        type="button"
-        aria-label={action.label}
-      >
-        <Icon className="h-4 w-4" aria-hidden="true" />
-      </button>
+      <div className="flex flex-col items-end gap-1">
+        <button
+          className={`flex h-9 w-9 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition ${visual.className}`}
+          onClick={handleClick}
+          title={action.label}
+          type="button"
+          aria-label={action.label}
+        >
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </button>
+        {error ? <p className="text-[10px] text-red-300">{error}</p> : null}
+      </div>
     );
   }
 
   return (
-    <div>
+    <div className="min-w-[10rem] flex-1">
       <button
         className={`group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition ${visual.className}`}
         onClick={handleClick}
@@ -200,9 +128,6 @@ export function ActionButton({
         </p>
       ) : null}
       {error ? <p className="mt-2 text-xs text-red-300">{error}</p> : null}
-      {!compact && selectedSystem ? (
-        <span className="sr-only">System: {selectedSystem}</span>
-      ) : null}
     </div>
   );
 }
