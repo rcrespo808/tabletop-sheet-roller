@@ -1,4 +1,5 @@
 import type { CharacterProfile, GameSystem, SheetAction, SystemSheet } from "@/lib/sheets/types";
+import { reverendOfRatsProfile } from "@/data/reverend-of-rats";
 
 export const characterProfiles: CharacterProfile[] = [
   {
@@ -165,7 +166,8 @@ export const characterProfiles: CharacterProfile[] = [
         ]
       }
     }
-  }
+  },
+  reverendOfRatsProfile
 ];
 
 export function getCharacterProfile(characterId: string): CharacterProfile | undefined {

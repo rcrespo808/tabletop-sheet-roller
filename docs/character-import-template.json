@@ -1,0 +1,203 @@
+{
+  "id": "your-character-id",
+  "name": "Character Name",
+  "subtitle": "Short tagline or class/concept line",
+  "concept": "One-line concept for the gallery.",
+  "ownerLabel": "Optional table or player label",
+  "defaultSystem": "dnd5e",
+  "portraitImage": "/characters/your-character-id/portrait.png",
+  "sheets": {
+    "dnd5e": {
+      "system": "dnd5e",
+      "label": "D&D 5e",
+      "levelLabel": "Level 5 Fighter",
+      "sheetImage": "/characters/your-character-id/dnd-sheet.png",
+      "attributes": {
+        "str": 16,
+        "dex": 14,
+        "con": 15,
+        "int": 10,
+        "wis": 12,
+        "cha": 8
+      },
+      "stats": {
+        "level": 5,
+        "proficiencyBonus": 3,
+        "armorClass": 18,
+        "initiativeBonus": 2,
+        "speed": 30,
+        "maxHp": 44,
+        "currentHp": 44,
+        "spellSaveDc": 13,
+        "spellAttackBonus": 5,
+        "saveProficiencies": {
+          "str": true,
+          "con": true
+        }
+      },
+      "skills": {
+        "acrobatics": { "ability": "dex" },
+        "animalHandling": { "ability": "wis" },
+        "arcana": { "ability": "int" },
+        "athletics": { "ability": "str", "proficient": true },
+        "deception": { "ability": "cha" },
+        "history": { "ability": "int" },
+        "insight": { "ability": "wis" },
+        "intimidation": { "ability": "cha", "proficient": true },
+        "investigation": { "ability": "int" },
+        "medicine": { "ability": "wis" },
+        "nature": { "ability": "int" },
+        "perception": { "ability": "wis", "proficient": true },
+        "performance": { "ability": "cha" },
+        "persuasion": { "ability": "cha" },
+        "religion": { "ability": "int" },
+        "sleightOfHand": { "ability": "dex" },
+        "stealth": { "ability": "dex" },
+        "survival": { "ability": "wis", "expertise": true, "bonus": 1 }
+      },
+      "actions": [
+        {
+          "id": "dnd-longsword-attack",
+          "type": "dnd-roll",
+          "label": "Longsword Attack",
+          "roll": "1d20+7",
+          "notes": "Optional reminder text shown on the action button.",
+          "source": "custom",
+          "hotspot": { "x": 42, "y": 68, "icon": "sword" }
+        },
+        {
+          "id": "dnd-longsword-damage",
+          "type": "dnd-roll",
+          "label": "Longsword Damage",
+          "roll": "1d8+4",
+          "source": "custom"
+        },
+        {
+          "id": "dnd-athletics-check",
+          "type": "dnd-check",
+          "label": "Athletics Check",
+          "ability": "str",
+          "skill": "athletics",
+          "source": "custom"
+        },
+        {
+          "id": "dnd-str-save",
+          "type": "dnd-check",
+          "label": "Strength Save",
+          "ability": "str",
+          "save": true,
+          "source": "custom"
+        },
+        {
+          "id": "dnd-second-wind-note",
+          "type": "note",
+          "label": "Second Wind",
+          "notes": "Once per short rest, regain 1d10 + 5 HP.",
+          "source": "custom"
+        }
+      ],
+      "metadata": {
+        "player": "Your Name",
+        "campaign": "Example Campaign"
+      }
+    },
+    "nwod": {
+      "system": "nwod",
+      "label": "NWoD",
+      "levelLabel": "Hunter / Sin-Eater / etc.",
+      "sheetImage": "/characters/your-character-id/nwod-sheet.png",
+      "attributes": {
+        "intelligence": 2,
+        "wits": 3,
+        "resolve": 3,
+        "strength": 3,
+        "dexterity": 2,
+        "stamina": 3,
+        "presence": 2,
+        "manipulation": 2,
+        "composure": 3
+      },
+      "stats": {
+        "willpower": 5,
+        "maxWillpower": 5,
+        "health": 7,
+        "maxHealth": 7,
+        "defense": 2,
+        "speed": 7,
+        "initiative": 6,
+        "armor": 0,
+        "morality": 7
+      },
+      "skills": {
+        "academics": 1,
+        "computer": 0,
+        "crafts": 1,
+        "investigation": 2,
+        "medicine": 1,
+        "occult": 2,
+        "politics": 0,
+        "science": 1,
+        "athletics": 2,
+        "brawl": 3,
+        "drive": 1,
+        "firearms": 1,
+        "larceny": 1,
+        "stealth": 1,
+        "survival": 2,
+        "animalKen": 0,
+        "empathy": 1,
+        "expression": 0,
+        "intimidation": 2,
+        "persuasion": 1,
+        "socialize": 1,
+        "streetwise": 2,
+        "subterfuge": 1
+      },
+      "actions": [
+        {
+          "id": "nwod-brawl-pool",
+          "type": "nwod-pool",
+          "label": "Brawl",
+          "pool": 6,
+          "again": 10,
+          "rote": false,
+          "chanceDie": false,
+          "notes": "Fixed pool for a power or generic strike.",
+          "source": "custom",
+          "hotspot": { "x": 55, "y": 40 }
+        },
+        {
+          "id": "nwod-strength-brawl-check",
+          "type": "nwod-check",
+          "label": "Strength + Brawl",
+          "attribute": "strength",
+          "skill": "brawl",
+          "modifier": 0,
+          "again": 10,
+          "rote": true,
+          "source": "custom"
+        },
+        {
+          "id": "nwod-wits-stealth-check",
+          "type": "nwod-check",
+          "label": "Wits + Stealth",
+          "attribute": "wits",
+          "skill": "stealth",
+          "modifier": -1,
+          "again": 9,
+          "source": "custom"
+        },
+        {
+          "id": "nwod-rite-note",
+          "type": "note",
+          "label": "Rite of Cleansing",
+          "notes": "Spend 1 Willpower. Suppresses minor supernatural signatures for one scene.",
+          "source": "custom"
+        }
+      ],
+      "metadata": {
+        "template": "Chronicles of Darkness"
+      }
+    }
+  }
+}
