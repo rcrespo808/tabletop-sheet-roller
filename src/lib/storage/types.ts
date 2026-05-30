@@ -5,13 +5,25 @@ export type StorageStatus = {
   message: string;
 };
 
-export function storageStatusForMode(mode: StorageMode): StorageStatus {
+export function storageStatusForMode(mode: StorageMode, scope: "storage" | "roll-log" = "storage"): StorageStatus {
   switch (mode) {
     case "supabase":
-      return { mode, message: "Using Supabase" };
+      return {
+        mode,
+        message: scope === "roll-log" ? "Roll log · Supabase" : "Using Supabase"
+      };
     case "local":
-      return { mode, message: "Using local browser storage" };
+      return {
+        mode,
+        message: scope === "roll-log" ? "Roll log · local browser" : "Using local browser storage"
+      };
     case "supabase-fallback":
-      return { mode, message: "Supabase unavailable, using local storage" };
+      return {
+        mode,
+        message:
+          scope === "roll-log"
+            ? "Roll log · local fallback"
+            : "Supabase unavailable, using local storage"
+      };
   }
 }

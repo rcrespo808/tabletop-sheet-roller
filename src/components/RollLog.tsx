@@ -11,18 +11,22 @@ import {
   normalizeRollLogEntry
 } from "@/lib/rollLog/export";
 import type { GameSystem, RollLogEntry, RollLogEntryKind } from "@/lib/sheets/types";
+import type { StorageMode } from "@/lib/storage/types";
 import { GlassPanel } from "./GlassPanel";
+import { StorageStatusBadge } from "./StorageStatusBadge";
 import { SystemBadge } from "./SystemBadge";
 
 type RollLogProps = {
   entries: RollLogEntry[];
-  onClear: () => void;
+  onClear: () => void | Promise<void>;
+  loading?: boolean;
+  storageMode?: StorageMode;
 };
 
 type SystemFilter = "all" | GameSystem;
 type KindFilter = "all" | RollLogEntryKind;
 
-export function RollLog({ entries, onClear }: RollLogProps) {
+export function RollLog({ entries, onClear, loading = false, storageMode = "local" }: RollLogProps) {
   const [systemFilter, setSystemFilter] = useState<SystemFilter>("all");
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
   const [characterFilter, setCharacterFilter] = useState<string>("all");
@@ -30,6 +34,7 @@ export function RollLog({ entries, onClear }: RollLogProps) {
   const [compactMode, setCompactMode] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
 
   const characterNames = useMemo(() => {
     const names = new Set<string>();
@@ -74,10 +79,22 @@ export function RollLog({ entries, onClear }: RollLogProps) {
     downloadEntriesAsJson(filteredEntries);
   }
 
+  async function handleClear() {
+    setClearing(true);
+    try {
+      await onClear();
+    } finally {
+      setClearing(false);
+    }
+  }
+
   return (
     <GlassPanel level="secondary" glow="medium" className="p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-foreground">Roll Log</h2>
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-foreground">Roll Log</h2>
+          <StorageStatusBadge mode={storageMode} scope="roll-log" />
+        </div>
         <div className="flex flex-wrap items-center gap-1">
           <button
             className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-slate-800/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
@@ -101,8 +118,8 @@ export function RollLog({ entries, onClear }: RollLogProps) {
           </button>
           <button
             className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-slate-800/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={entries.length === 0}
-            onClick={onClear}
+            disabled={entries.length === 0 || clearing || loading}
+            onClick={handleClear}
             title="Clear all"
             type="button"
             aria-label="Clear log"
@@ -171,7 +188,11 @@ export function RollLog({ entries, onClear }: RollLogProps) {
       {copyMessage ? <p className="mt-2 text-xs text-emerald-300">{copyMessage}</p> : null}
 
       <div className="mt-4 max-h-96 space-y-3 overflow-y-auto pr-1">
-        {filteredEntries.length === 0 ? (
+        {loading ? (
+          <p className="rounded-lg border border-dashed border-slate-700/25 p-6 text-center text-sm text-muted-foreground">
+            Loading roll log…
+          </p>
+        ) : filteredEntries.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-700/25 p-6 text-center text-sm text-muted-foreground">
             {entries.length === 0
               ? "No rolls yet. Start rolling to see your history."

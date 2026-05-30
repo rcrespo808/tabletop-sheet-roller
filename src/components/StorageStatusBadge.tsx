@@ -6,10 +6,15 @@ import type { StorageMode } from "@/lib/storage/types";
 type StorageStatusBadgeProps = {
   mode?: StorageMode;
   className?: string;
+  scope?: "storage" | "roll-log";
 };
 
-export function StorageStatusBadge({ mode = "local", className = "" }: StorageStatusBadgeProps) {
-  const status = storageStatusForMode(mode);
+export function StorageStatusBadge({
+  mode = "local",
+  className = "",
+  scope = "storage"
+}: StorageStatusBadgeProps) {
+  const status = storageStatusForMode(mode, scope);
 
   const tone =
     status.mode === "supabase"

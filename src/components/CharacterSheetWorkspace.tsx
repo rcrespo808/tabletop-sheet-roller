@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getSystemSheet } from "@/data/characters";
 import type { CharacterProfile, GameSystem, RollLogEntry } from "@/lib/sheets/types";
 import { getCustomActions } from "@/lib/sheets/actions";
+import {
+  clearRollLogs,
+  DEFAULT_ROOM_SLUG,
+  getRollLogStorageMode,
+  listRollLogs,
+  saveRollLog
+} from "@/lib/storage/rollLogRepository";
+import type { StorageMode } from "@/lib/storage/types";
 import { CharacterImagesPanel } from "./CharacterImagesPanel";
 import { CharacterSheetViewer } from "./CharacterSheetViewer";
 import { CharacterStatsPanel } from "./CharacterStatsPanel";
@@ -24,10 +32,42 @@ export function CharacterSheetWorkspace({
   onProfileChange
 }: CharacterSheetWorkspaceProps) {
   const [entries, setEntries] = useState<RollLogEntry[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(true);
+  const [rollLogStorageMode, setRollLogStorageMode] = useState<StorageMode>("local");
   const sheet = getSystemSheet(profile, selectedSystem);
 
-  function addEntry(entry: RollLogEntry) {
-    setEntries((current) => [entry, ...current]);
+  useEffect(() => {
+    let cancelled = false;
+
+    listRollLogs(DEFAULT_ROOM_SLUG)
+      .then((loaded) => {
+        if (cancelled) return;
+        setEntries(loaded);
+        setRollLogStorageMode(getRollLogStorageMode());
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLogs(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function addEntry(entry: RollLogEntry) {
+    setEntries((current) => {
+      if (current.some((existing) => existing.id === entry.id)) return current;
+      return [entry, ...current];
+    });
+
+    await saveRollLog(DEFAULT_ROOM_SLUG, entry, { characterId: profile.id });
+    setRollLogStorageMode(getRollLogStorageMode());
+  }
+
+  async function handleClearLogs() {
+    setEntries([]);
+    await clearRollLogs(DEFAULT_ROOM_SLUG);
+    setRollLogStorageMode(getRollLogStorageMode());
   }
 
   if (!sheet) {
@@ -74,7 +114,12 @@ export function CharacterSheetWorkspace({
           defaultSystem={selectedSystem}
           onRoll={addEntry}
         />
-        <RollLog entries={entries} onClear={() => setEntries([])} />
+        <RollLog
+          entries={entries}
+          loading={loadingLogs}
+          onClear={handleClearLogs}
+          storageMode={rollLogStorageMode}
+        />
       </aside>
     </div>
   );

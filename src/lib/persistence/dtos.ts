@@ -71,44 +71,55 @@ export type SupabaseCharacterActionUpdate = Partial<
 
 export type SupabaseRollLogRow = {
   id: string;
-  room_id: string | null;
+  room_slug: string;
   character_id: string | null;
   character_name: string | null;
+  system: GameSystem | null;
+  kind: "roll" | "note" | "system";
   action_label: string | null;
-  system: GameSystem;
-  expression: string;
+  expression: string | null;
   result_text: string;
-  details: string;
+  details: { text?: string } | string | null;
   created_at: string;
 };
 
 export type SupabaseRollLogInsert = {
-  room_id?: string | null;
+  id: string;
+  room_slug: string;
   character_id?: string | null;
   character_name?: string | null;
+  system?: GameSystem | null;
+  kind?: "roll" | "note" | "system";
   action_label?: string | null;
-  system: GameSystem;
-  expression: string;
+  expression?: string | null;
   result_text: string;
-  details: string;
+  details?: { text?: string } | string | null;
+  created_at?: string;
 };
 
-export type SupabaseRollLogUpdate = Partial<Omit<SupabaseRollLogInsert, "system">>;
+export type SupabaseRollLogUpdate = Partial<Omit<SupabaseRollLogInsert, "id" | "room_slug">>;
 
+/** @deprecated Use rollLogEntryToInsert from supabaseRollLogMappers */
 export function toSupabaseRollLogInsert(
   entry: Omit<RollLogEntry, "id" | "createdAt"> & {
+    id?: string;
     roomId?: string | null;
+    roomSlug?: string;
     characterId?: string | null;
+    createdAt?: string;
   }
 ): SupabaseRollLogInsert {
   return {
-    room_id: entry.roomId ?? null,
+    id: entry.id ?? crypto.randomUUID(),
+    room_slug: entry.roomSlug ?? entry.roomId ?? "default",
     character_id: entry.characterId ?? null,
     character_name: entry.characterName ?? null,
     action_label: entry.actionLabel ?? null,
-    system: entry.system ?? "dnd5e",
-    expression: entry.expression ?? entry.actionLabel ?? "",
+    system: entry.system ?? null,
+    kind: entry.kind ?? "roll",
+    expression: entry.expression ?? entry.actionLabel ?? null,
     result_text: entry.resultText,
-    details: entry.details ?? ""
+    details: entry.details ? { text: entry.details } : null,
+    created_at: entry.createdAt
   };
 }
