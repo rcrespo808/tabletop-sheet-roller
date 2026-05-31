@@ -78,8 +78,11 @@ function parseInventoryItem(value: unknown): CharacterInventoryItem | null {
   return {
     id: candidate.id,
     name: candidate.name,
-    quantity: typeof candidate.quantity === "number" ? candidate.quantity : undefined,
-    description: typeof candidate.description === "string" ? candidate.description : undefined,
+    codexEntryId: typeof candidate.codexEntryId === "string" ? candidate.codexEntryId : undefined,
+    quantity: typeof candidate.quantity === "number" ? candidate.quantity : 1,
+    equipped: typeof candidate.equipped === "boolean" ? candidate.equipped : false,
+    rarity: typeof candidate.rarity === "string" ? candidate.rarity : undefined,
+    notes: typeof candidate.notes === "string" ? candidate.notes : undefined,
     tags: Array.isArray(candidate.tags) ? candidate.tags : [],
     sourceCodexEntryId:
       typeof candidate.sourceCodexEntryId === "string" ? candidate.sourceCodexEntryId : undefined,

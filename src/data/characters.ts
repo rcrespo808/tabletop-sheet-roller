@@ -9,6 +9,11 @@ export const characterProfiles: CharacterProfile[] = [
     concept: "Occult signal manipulator and silence-based controller.",
     defaultSystem: "dnd5e",
     portraitImage: "/characters/he-zhen/sheet.png",
+    inventory: [],
+    wallet: {},
+    rewardHistory: [],
+    progression: {},
+    conditions: [],
     sheets: {
       dnd5e: {
         system: "dnd5e",

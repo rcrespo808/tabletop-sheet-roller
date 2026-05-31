@@ -333,6 +333,37 @@ export const dnd5eBasicCodex: CodexEntry[] = [
     }
   },
   {
+    id: "seed-dnd5e-potion-of-healing",
+    system: "dnd5e",
+    type: "item",
+    name: "Potion of Healing",
+    description: "A consumable restorative potion commonly used as treasure or emergency recovery.",
+    rulesText: "Drink or administer at the table's normal item-use pace. Roll the healing dice when consumed.",
+    tags: ["consumable", "healing", "magic-item"],
+    visibility: "public",
+    sourceLabel: "D&D 5e item reminder",
+    actionTemplate: {
+      id: "potion-of-healing",
+      type: "dnd-roll",
+      label: "Potion of Healing",
+      roll: "2d4+2",
+      notes: "Healing restored when consumed.",
+      source: "custom"
+    },
+    grants: [
+      {
+        type: "inventory_item",
+        item: {
+          id: "potion-of-healing",
+          name: "Potion of Healing",
+          quantity: 1,
+          rarity: "common",
+          tags: ["consumable", "healing"]
+        }
+      }
+    ]
+  },
+  {
     id: "seed-dnd5e-cloak-of-protection",
     system: "dnd5e",
     type: "item",

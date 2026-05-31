@@ -41,12 +41,14 @@ import {
 import type { AuthState } from "@/lib/auth/supabaseAuth";
 import type {
   AbilityKey,
+  ActiveCondition,
   CharacterInventoryItem,
   CharacterProfile,
   Dnd5eSkillKey,
   GameSystem,
   NwodAttributeKey,
   NwodSkillKey,
+  RewardTransaction,
   SheetAction
 } from "@/lib/sheets/types";
 import { listCharacters, saveCharacter } from "@/lib/storage/characterRepository";
@@ -477,6 +479,60 @@ function appendUniqueInventory(
   return { inventory: [...inventory, item], added: true };
 }
 
+function isConditionEntry(entry: CodexEntry): boolean {
+  return (
+    entry.type === "condition" ||
+    entry.type === "disease" ||
+    entry.type === "curse" ||
+    entry.type === "blessing"
+  );
+}
+
+function appendUniqueCondition(
+  conditions: ActiveCondition[] = [],
+  entry: CodexEntry
+): { conditions: ActiveCondition[]; added: boolean } {
+  const duplicate = conditions.some((condition) => {
+    return (
+      condition.codexEntryId === entry.id ||
+      condition.name.trim().toLowerCase() === entry.name.trim().toLowerCase()
+    );
+  });
+
+  if (duplicate) return { conditions, added: false };
+
+  return {
+    conditions: [
+      {
+        id: `codex-${entry.id}`,
+        codexEntryId: entry.id,
+        name: entry.name,
+        description: [entry.description, entry.rulesText].filter(Boolean).join("\n\n"),
+        source: entry.sourceLabel ?? "Codex",
+        expiresAt: null
+      },
+      ...conditions
+    ],
+    added: true
+  };
+}
+
+function buildRewardTransaction(
+  characterId: string,
+  entry: CodexEntry,
+  delta: Record<string, unknown>
+): RewardTransaction {
+  return {
+    id: crypto.randomUUID(),
+    characterId,
+    source: entry.name,
+    type: "codex",
+    description: `Added Codex Feature: ${entry.name}`,
+    delta,
+    createdAt: new Date().toISOString()
+  };
+}
+
 function isEntryShape(value: unknown): value is CodexEntry {
   if (!value || typeof value !== "object") return false;
   const entry = value as Partial<CodexEntry>;
@@ -731,55 +787,83 @@ export default function CodexPage() {
 
     let nextActions = sheet.actions;
     let nextInventory = selectedCharacter.inventory ?? [];
+    let nextConditions = selectedCharacter.conditions ?? [];
+    const rewardDeltas: Record<string, unknown>[] = [];
     let added = 0;
     let skipped = 0;
 
     if (addSelection.actionTemplate && selectedEntry.actionTemplate) {
-      const result = appendUniqueAction(
-        nextActions,
-        withCodexMetadata(selectedEntry.actionTemplate, selectedEntry)
-      );
+      const templateAction = withCodexMetadata(selectedEntry.actionTemplate, selectedEntry);
+      const result = appendUniqueAction(nextActions, templateAction);
       nextActions = result.actions;
       result.added ? (added += 1) : (skipped += 1);
+      if (result.added) rewardDeltas.push({ action: templateAction.label });
     }
 
     if (addSelection.grants) {
       for (const grant of selectedEntry.grants ?? []) {
         if (grant.type === "action") {
-          const result = appendUniqueAction(nextActions, withCodexMetadata(grant.action, selectedEntry, grant.action.id));
+          const result = appendUniqueAction(
+            nextActions,
+            withCodexMetadata(grant.action, selectedEntry, grant.action.id)
+          );
           nextActions = result.actions;
           result.added ? (added += 1) : (skipped += 1);
+          if (result.added) rewardDeltas.push({ action: grant.action.label });
         }
         if (grant.type === "note") {
           const result = appendUniqueAction(nextActions, noteActionFromGrant(selectedEntry, grant));
           nextActions = result.actions;
           result.added ? (added += 1) : (skipped += 1);
+          if (result.added) rewardDeltas.push({ note: grant.title });
         }
         if (grant.type === "stat_modifier") {
           const result = appendUniqueAction(nextActions, statModifierNote(selectedEntry, grant));
           nextActions = result.actions;
           result.added ? (added += 1) : (skipped += 1);
+          if (result.added) rewardDeltas.push({ statModifier: grant });
         }
         if (grant.type === "inventory_item") {
           const result = appendUniqueInventory(nextInventory, {
             ...grant.item,
+            codexEntryId: selectedEntry.id,
+            quantity: grant.item.quantity ?? 1,
             sourceCodexEntryId: selectedEntry.id
           });
           nextInventory = result.inventory;
           result.added ? (added += 1) : (skipped += 1);
+          if (result.added) rewardDeltas.push({ item: grant.item.name });
         }
       }
     }
 
     if (addSelection.note) {
-      const result = appendUniqueAction(nextActions, noteActionFromEntry(selectedEntry));
-      nextActions = result.actions;
+      const result = isConditionEntry(selectedEntry)
+        ? appendUniqueCondition(nextConditions, selectedEntry)
+        : appendUniqueAction(nextActions, noteActionFromEntry(selectedEntry));
+      if ("conditions" in result) nextConditions = result.conditions;
+      else nextActions = result.actions;
       result.added ? (added += 1) : (skipped += 1);
+      if (result.added) {
+        rewardDeltas.push(isConditionEntry(selectedEntry) ? { condition: selectedEntry.name } : { note: selectedEntry.name });
+      }
     }
+
+    const nextRewardHistory =
+      added > 0
+        ? [
+            buildRewardTransaction(selectedCharacter.id, selectedEntry, {
+              grants: rewardDeltas
+            }),
+            ...(selectedCharacter.rewardHistory ?? [])
+          ]
+        : selectedCharacter.rewardHistory ?? [];
 
     const saved = await saveCharacter({
       ...selectedCharacter,
       inventory: nextInventory,
+      conditions: nextConditions,
+      rewardHistory: nextRewardHistory,
       sheets: {
         ...selectedCharacter.sheets,
         [effectiveTargetSystem]: {

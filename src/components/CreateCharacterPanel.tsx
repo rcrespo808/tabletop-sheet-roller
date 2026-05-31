@@ -48,6 +48,11 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
       name,
       characterKind,
       defaultSystem: system,
+      inventory: [],
+      wallet: {},
+      rewardHistory: [],
+      progression: {},
+      conditions: [],
       sheets: {
         [system]: {
           system,

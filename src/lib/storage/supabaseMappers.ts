@@ -1,5 +1,8 @@
 import { ensureActionIds } from "@/data/characters";
 import type {
+  ActiveCondition,
+  CharacterProgression,
+  CurrencyWallet,
   CharacterInventoryItem,
   CharacterKind,
   CharacterProfile,
@@ -19,6 +22,10 @@ export type CharacterProfileRow = {
   default_system: GameSystem;
   sheets: unknown;
   inventory?: unknown;
+  wallet?: unknown;
+  reward_history?: unknown;
+  progression?: unknown;
+  conditions?: unknown;
   created_at: string;
   updated_at: string;
 };
@@ -80,8 +87,21 @@ function parseInventory(value: unknown): CharacterInventoryItem[] {
       return {
         id,
         name: typeof item.name === "string" ? item.name : id,
-        quantity: typeof item.quantity === "number" ? item.quantity : undefined,
-        description: typeof item.description === "string" ? item.description : undefined,
+        codexEntryId:
+          typeof item.codexEntryId === "string"
+            ? item.codexEntryId
+            : typeof item.sourceCodexEntryId === "string"
+              ? item.sourceCodexEntryId
+              : undefined,
+        quantity: typeof item.quantity === "number" ? item.quantity : 1,
+        equipped: typeof item.equipped === "boolean" ? item.equipped : false,
+        rarity: typeof item.rarity === "string" ? item.rarity : undefined,
+        notes:
+          typeof item.notes === "string"
+            ? item.notes
+            : typeof item.description === "string"
+              ? item.description
+              : undefined,
         tags: Array.isArray(item.tags)
           ? item.tags.filter((tag): tag is string => typeof tag === "string")
           : [],
@@ -93,6 +113,92 @@ function parseInventory(value: unknown): CharacterInventoryItem[] {
             : undefined
       };
     });
+}
+
+function parseWallet(value: unknown): CurrencyWallet {
+  if (!value || typeof value !== "object") return {};
+  const input = value as Record<string, unknown>;
+  const custom =
+    input.custom && typeof input.custom === "object"
+      ? Object.fromEntries(
+          Object.entries(input.custom as Record<string, unknown>).filter((entry): entry is [string, number] => {
+            return typeof entry[1] === "number";
+          })
+        )
+      : undefined;
+
+  return {
+    gp: typeof input.gp === "number" ? input.gp : undefined,
+    sp: typeof input.sp === "number" ? input.sp : undefined,
+    cp: typeof input.cp === "number" ? input.cp : undefined,
+    xp: typeof input.xp === "number" ? input.xp : undefined,
+    custom
+  };
+}
+
+function parseRewardHistory(value: unknown): CharacterProfile["rewardHistory"] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((item): item is Record<string, unknown> => {
+      return Boolean(
+        item &&
+          typeof item === "object" &&
+          typeof item.id === "string" &&
+          typeof item.characterId === "string" &&
+          typeof item.description === "string" &&
+          typeof item.createdAt === "string"
+      );
+    })
+    .map((item) => ({
+      id: typeof item.id === "string" ? item.id : "",
+      characterId: typeof item.characterId === "string" ? item.characterId : "",
+      source: typeof item.source === "string" ? item.source : undefined,
+      type:
+        item.type === "currency" ||
+        item.type === "item" ||
+        item.type === "xp" ||
+        item.type === "codex" ||
+        item.type === "manual"
+          ? item.type
+          : "manual",
+      description: typeof item.description === "string" ? item.description : "",
+      delta:
+        item.delta && typeof item.delta === "object"
+          ? (item.delta as Record<string, unknown>)
+          : {},
+      createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString()
+    }));
+}
+
+function parseProgression(value: unknown): CharacterProgression {
+  if (!value || typeof value !== "object") return {};
+  const input = value as Record<string, unknown>;
+  return {
+    level: typeof input.level === "number" ? input.level : undefined,
+    xp: typeof input.xp === "number" ? input.xp : undefined,
+    milestones: Array.isArray(input.milestones)
+      ? input.milestones.filter((milestone): milestone is string => typeof milestone === "string")
+      : []
+  };
+}
+
+function parseConditions(value: unknown): ActiveCondition[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((item): item is Record<string, unknown> => {
+      return Boolean(item && typeof item === "object" && typeof item.id === "string");
+    })
+    .map((item) => ({
+      id: typeof item.id === "string" ? item.id : "",
+      codexEntryId: typeof item.codexEntryId === "string" ? item.codexEntryId : undefined,
+      name: typeof item.name === "string" ? item.name : String(item.id),
+      description: typeof item.description === "string" ? item.description : undefined,
+      source: typeof item.source === "string" ? item.source : undefined,
+      expiresAt:
+        typeof item.expiresAt === "string" || item.expiresAt === null ? item.expiresAt : undefined
+    }));
 }
 
 export function rowToCharacterProfile(row: CharacterProfileRow): CharacterProfile {
@@ -115,6 +221,10 @@ export function rowToCharacterProfile(row: CharacterProfileRow): CharacterProfil
     defaultSystem,
     sheets,
     inventory: parseInventory(row.inventory),
+    wallet: parseWallet(row.wallet),
+    rewardHistory: parseRewardHistory(row.reward_history),
+    progression: parseProgression(row.progression),
+    conditions: parseConditions(row.conditions),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -132,7 +242,11 @@ export function characterProfileToInsert(profile: CharacterProfile) {
     portrait_image: profile.portraitImage ?? null,
     default_system: profile.defaultSystem,
     sheets: profile.sheets,
-    inventory: profile.inventory ?? []
+    inventory: profile.inventory ?? [],
+    wallet: profile.wallet ?? {},
+    reward_history: profile.rewardHistory ?? [],
+    progression: profile.progression ?? {},
+    conditions: profile.conditions ?? []
   };
 }
 
@@ -147,6 +261,10 @@ export function characterProfileToUpdate(profile: CharacterProfile) {
     portrait_image: profile.portraitImage ?? null,
     default_system: profile.defaultSystem,
     sheets: profile.sheets,
-    inventory: profile.inventory ?? []
+    inventory: profile.inventory ?? [],
+    wallet: profile.wallet ?? {},
+    reward_history: profile.rewardHistory ?? [],
+    progression: profile.progression ?? {},
+    conditions: profile.conditions ?? []
   };
 }

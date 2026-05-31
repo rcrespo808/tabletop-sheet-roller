@@ -1,9 +1,12 @@
 import { ensureActionIds, getCharacterProfile, characterProfiles } from "@/data/characters";
 import type {
+  ActiveCondition,
   CharacterKind,
   CharacterProfile,
+  CurrencyWallet,
   GameSystem,
   LegacyCharacterSheet,
+  RewardTransaction,
   SheetAction,
   SystemSheet
 } from "@/lib/sheets/types";
@@ -20,6 +23,116 @@ export type CharacterLookupResult = {
   profile: CharacterProfile;
   initialSystem?: GameSystem;
 };
+
+function parseInventory(input: unknown): CharacterProfile["inventory"] {
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .filter((item): item is Record<string, unknown> => {
+      return Boolean(item && typeof item === "object" && typeof item.id === "string");
+    })
+    .map((item) => ({
+      id: typeof item.id === "string" ? item.id : "",
+      codexEntryId:
+        typeof item.codexEntryId === "string"
+          ? item.codexEntryId
+          : typeof item.sourceCodexEntryId === "string"
+            ? item.sourceCodexEntryId
+            : undefined,
+      name: typeof item.name === "string" ? item.name : String(item.id),
+      quantity: typeof item.quantity === "number" ? item.quantity : 1,
+      equipped: typeof item.equipped === "boolean" ? item.equipped : false,
+      rarity: typeof item.rarity === "string" ? item.rarity : undefined,
+      notes:
+        typeof item.notes === "string"
+          ? item.notes
+          : typeof item.description === "string"
+            ? item.description
+            : undefined,
+      sourceCodexEntryId:
+        typeof item.sourceCodexEntryId === "string" ? item.sourceCodexEntryId : undefined,
+      tags: Array.isArray(item.tags)
+        ? item.tags.filter((tag): tag is string => typeof tag === "string")
+        : [],
+      metadata:
+        item.metadata && typeof item.metadata === "object"
+          ? (item.metadata as Record<string, unknown>)
+          : undefined
+    }));
+}
+
+function parseWallet(input: unknown): CurrencyWallet {
+  if (!input || typeof input !== "object") return {};
+  const candidate = input as Record<string, unknown>;
+  const custom =
+    candidate.custom && typeof candidate.custom === "object"
+      ? Object.fromEntries(
+          Object.entries(candidate.custom as Record<string, unknown>).filter(
+            (entry): entry is [string, number] => typeof entry[1] === "number"
+          )
+        )
+      : undefined;
+
+  return {
+    gp: typeof candidate.gp === "number" ? candidate.gp : undefined,
+    sp: typeof candidate.sp === "number" ? candidate.sp : undefined,
+    cp: typeof candidate.cp === "number" ? candidate.cp : undefined,
+    xp: typeof candidate.xp === "number" ? candidate.xp : undefined,
+    custom
+  };
+}
+
+function parseRewardHistory(input: unknown): RewardTransaction[] {
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .filter((item): item is Record<string, unknown> => {
+      return Boolean(
+        item &&
+          typeof item === "object" &&
+          typeof item.id === "string" &&
+          typeof item.characterId === "string" &&
+          typeof item.description === "string"
+      );
+    })
+    .map((item) => ({
+      id: typeof item.id === "string" ? item.id : "",
+      characterId: typeof item.characterId === "string" ? item.characterId : "",
+      source: typeof item.source === "string" ? item.source : undefined,
+      type:
+        item.type === "currency" ||
+        item.type === "item" ||
+        item.type === "xp" ||
+        item.type === "codex" ||
+        item.type === "manual"
+          ? item.type
+          : "manual",
+      description: typeof item.description === "string" ? item.description : "",
+      delta:
+        item.delta && typeof item.delta === "object"
+          ? (item.delta as Record<string, unknown>)
+          : {},
+      createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString()
+    }));
+}
+
+function parseConditions(input: unknown): ActiveCondition[] {
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .filter((item): item is Record<string, unknown> => {
+      return Boolean(item && typeof item === "object" && typeof item.id === "string");
+    })
+    .map((item) => ({
+      id: typeof item.id === "string" ? item.id : "",
+      codexEntryId: typeof item.codexEntryId === "string" ? item.codexEntryId : undefined,
+      name: typeof item.name === "string" ? item.name : String(item.id),
+      description: typeof item.description === "string" ? item.description : undefined,
+      source: typeof item.source === "string" ? item.source : undefined,
+      expiresAt:
+        typeof item.expiresAt === "string" || item.expiresAt === null ? item.expiresAt : undefined
+    }));
+}
 
 export function normalizeCharacterProfile(profile: CharacterProfile): CharacterProfile {
   const sheets: CharacterProfile["sheets"] = {};
@@ -47,7 +160,15 @@ export function normalizeCharacterProfile(profile: CharacterProfile): CharacterP
     portraitImage: profile.portraitImage?.trim(),
     defaultSystem: profile.defaultSystem,
     sheets,
-    inventory: profile.inventory ?? [],
+    inventory: parseInventory(profile.inventory),
+    wallet: parseWallet(profile.wallet),
+    rewardHistory: parseRewardHistory(profile.rewardHistory),
+    progression: {
+      level: profile.progression?.level,
+      xp: profile.progression?.xp,
+      milestones: profile.progression?.milestones ?? []
+    },
+    conditions: parseConditions(profile.conditions),
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt
   };
@@ -105,6 +226,11 @@ function wrapLegacyFlatSheet(input: Record<string, unknown>): CharacterProfile |
     subtitle: typeof input.subtitle === "string" ? input.subtitle : undefined,
     defaultSystem: system,
     portraitImage: input.sheetImage,
+    inventory: [],
+    wallet: {},
+    rewardHistory: [],
+    progression: {},
+    conditions: [],
     sheets: {
       [system]: {
         system,
@@ -155,7 +281,14 @@ export function parseCharacterProfile(input: unknown): CharacterProfile | null {
       typeof candidate.portraitImage === "string" ? candidate.portraitImage : undefined,
     defaultSystem,
     sheets,
-    inventory: Array.isArray(candidate.inventory) ? candidate.inventory : [],
+    inventory: parseInventory(candidate.inventory),
+    wallet: parseWallet(candidate.wallet),
+    rewardHistory: parseRewardHistory(candidate.rewardHistory),
+    progression:
+      candidate.progression && typeof candidate.progression === "object"
+        ? (candidate.progression as CharacterProfile["progression"])
+        : {},
+    conditions: parseConditions(candidate.conditions),
     createdAt: typeof candidate.createdAt === "string" ? candidate.createdAt : undefined,
     updatedAt: typeof candidate.updatedAt === "string" ? candidate.updatedAt : undefined
   });

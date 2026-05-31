@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Sparkles } from "lucide-react";
+import { BookOpen, Gift, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AuthPanel } from "@/components/AuthPanel";
 import { CharacterProfileCard } from "@/components/CharacterProfileCard";
@@ -74,6 +74,13 @@ export default function HomePage() {
               >
                 <BookOpen className="h-4 w-4" aria-hidden="true" />
                 Codex
+              </Link>
+              <Link
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
+                href="/loot"
+              >
+                <Gift className="h-4 w-4" aria-hidden="true" />
+                Loot
               </Link>
             </div>
           </div>

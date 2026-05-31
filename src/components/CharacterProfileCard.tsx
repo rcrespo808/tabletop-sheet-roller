@@ -18,6 +18,9 @@ type CharacterProfileCardProps = {
 export function CharacterProfileCard({ profile }: CharacterProfileCardProps) {
   const systems = getAvailableSystems(profile);
   const primaryImage = getPrimaryImage(profile);
+  const inventoryCount = profile.inventory?.length ?? 0;
+  const xp = profile.progression?.xp ?? profile.wallet?.xp ?? 0;
+  const conditionCount = profile.conditions?.length ?? 0;
 
   return (
     <Link
@@ -83,6 +86,16 @@ export function CharacterProfileCard({ profile }: CharacterProfileCardProps) {
                 {system === "dnd5e" ? "D&D 5e" : "NWoD"}: {getActionCount(profile, system)} actions
               </p>
             ))}
+            <p>
+              Inventory: {inventoryCount} item{inventoryCount === 1 ? "" : "s"}
+            </p>
+            <p>XP: {xp}</p>
+            <p>
+              Conditions: {conditionCount}
+              {conditionCount > 0
+                ? ` (${(profile.conditions ?? []).map((condition) => condition.name).join(", ")})`
+                : ""}
+            </p>
           </div>
 
           <span className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-purple-500/40 bg-purple-500/20 text-sm font-semibold text-purple-100 transition group-hover:bg-purple-500/30">

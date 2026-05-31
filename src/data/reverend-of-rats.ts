@@ -9,6 +9,11 @@ export const reverendOfRatsProfile: CharacterProfile = {
   ownerLabel: "NPC / Player Character",
   defaultSystem: "nwod",
   portraitImage: "/characters/reverend-of-rats/sheet.png",
+  inventory: [],
+  wallet: {},
+  rewardHistory: [],
+  progression: {},
+  conditions: [],
   sheets: {
     nwod: {
       system: "nwod",

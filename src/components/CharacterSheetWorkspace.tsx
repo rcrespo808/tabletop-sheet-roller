@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { getSystemSheet } from "@/data/characters";
 import { getCurrentAuthState, type AuthState } from "@/lib/auth/supabaseAuth";
 import type {
-  CharacterInventoryItem,
   CharacterProfile,
   GameSystem,
   RollLogEntry,
@@ -22,6 +21,7 @@ import {
 } from "@/lib/storage/rollLogRepository";
 import type { StorageMode } from "@/lib/storage/types";
 import { CharacterImagesPanel } from "./CharacterImagesPanel";
+import { CharacterRewardsPanel } from "./CharacterRewardsPanel";
 import { CharacterSheetViewer } from "./CharacterSheetViewer";
 import { CharacterStatsPanel } from "./CharacterStatsPanel";
 import { DiceRoller } from "./DiceRoller";
@@ -125,13 +125,10 @@ export function CharacterSheetWorkspace({
 
   const customActions = getCustomActions(sheet);
   const codexActions = customActions.filter((action) => action.metadata?.sourceCodexEntryId);
-  const codexInventory = (profile.inventory ?? []).filter((item) => item.sourceCodexEntryId);
-  const canRemoveCodexAttachment =
+  const canManageRewards =
     Boolean(onProfileChange) &&
-    (!isSupabaseConfigured() ||
-      authState.profile?.userLevel === "gm" ||
-      !profile.ownerUserId ||
-      profile.ownerUserId === authState.user?.id);
+    (!isSupabaseConfigured() || authState.profile?.userLevel === "gm");
+  const canToggleEquipment = canManageRewards;
 
   async function removeCodexAction(action: SheetAction) {
     if (!onProfileChange) return;
@@ -147,14 +144,6 @@ export function CharacterSheetWorkspace({
           actions: currentSheet.actions.filter((current) => current.id !== action.id)
         }
       }
-    });
-  }
-
-  async function removeCodexInventoryItem(item: CharacterInventoryItem) {
-    if (!onProfileChange) return;
-    await onProfileChange({
-      ...profile,
-      inventory: (profile.inventory ?? []).filter((current) => current.id !== item.id)
     });
   }
 
@@ -185,7 +174,7 @@ export function CharacterSheetWorkspace({
           selectedSystem={selectedSystem}
           sheet={sheet}
         />
-        {codexActions.length > 0 || codexInventory.length > 0 ? (
+        {codexActions.length > 0 ? (
           <GlassPanel level="secondary" className="p-5">
             <h2 className="text-lg font-semibold text-foreground">
               Codex Attachments / Granted Features
@@ -206,7 +195,7 @@ export function CharacterSheetWorkspace({
                           : ""}
                       </p>
                     </div>
-                    {canRemoveCodexAttachment ? (
+                    {canManageRewards ? (
                       <button
                         className="rounded-md border border-red-500/30 bg-red-950/30 px-2 py-1 text-xs font-semibold text-red-100 transition hover:bg-red-900/40"
                         onClick={() => removeCodexAction(action)}
@@ -218,34 +207,16 @@ export function CharacterSheetWorkspace({
                   </div>
                 </div>
               ))}
-              {codexInventory.map((item) => (
-                <div
-                  className="rounded-md border border-slate-700/25 bg-slate-950/30 p-3"
-                  key={item.id}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{item.name}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Inventory grant
-                        {item.quantity ? ` / qty ${item.quantity}` : ""}
-                      </p>
-                    </div>
-                    {canRemoveCodexAttachment ? (
-                      <button
-                        className="rounded-md border border-red-500/30 bg-red-950/30 px-2 py-1 text-xs font-semibold text-red-100 transition hover:bg-red-900/40"
-                        onClick={() => removeCodexInventoryItem(item)}
-                        type="button"
-                      >
-                        Remove
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
             </div>
           </GlassPanel>
         ) : null}
+        <CharacterRewardsPanel
+          canManageRewards={canManageRewards}
+          canToggleEquipment={canToggleEquipment}
+          onProfileChange={onProfileChange}
+          profile={profile}
+          selectedSystem={selectedSystem}
+        />
         <DiceRoller
           characterName={profile.name}
           defaultSystem={selectedSystem}

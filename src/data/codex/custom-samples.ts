@@ -21,7 +21,7 @@ export const customSampleCodex: CodexEntry[] = [
           id: "rat-chapel-reliquary",
           name: "Rat Chapel Reliquary",
           quantity: 1,
-          description: "A chapel relic box seeded with rat-priest secrets.",
+          notes: "A chapel relic box seeded with rat-priest secrets.",
           tags: ["custom", "relic"]
         }
       },
@@ -61,7 +61,7 @@ export const customSampleCodex: CodexEntry[] = [
           id: "blade-of-the-last-hour",
           name: "Blade of the Last Hour",
           quantity: 1,
-          description: "Custom magic weapon with a once-per-rest time or necrotic rider.",
+          notes: "Custom magic weapon with a once-per-rest time or necrotic rider.",
           tags: ["custom", "magic-item", "weapon"]
         }
       }

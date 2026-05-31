@@ -170,14 +170,52 @@ export type SheetAction =
       metadata?: SheetActionMetadata;
     };
 
-export type CharacterInventoryItem = {
+export type InventoryItem = {
   id: string;
+  codexEntryId?: string;
   name: string;
-  quantity?: number;
-  description?: string;
-  tags?: string[];
+  quantity: number;
+  equipped?: boolean;
+  rarity?: string;
+  notes?: string;
   sourceCodexEntryId?: string;
-  metadata?: Record<string, string | number | boolean | null | undefined>;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+};
+
+export type CharacterInventoryItem = InventoryItem;
+
+export type CurrencyWallet = {
+  gp?: number;
+  sp?: number;
+  cp?: number;
+  xp?: number;
+  custom?: Record<string, number>;
+};
+
+export type RewardTransaction = {
+  id: string;
+  characterId: string;
+  source?: string;
+  type: "currency" | "item" | "xp" | "codex" | "manual";
+  description: string;
+  delta: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type CharacterProgression = {
+  level?: number;
+  xp?: number;
+  milestones?: string[];
+};
+
+export type ActiveCondition = {
+  id: string;
+  codexEntryId?: string;
+  name: string;
+  description?: string;
+  source?: string;
+  expiresAt?: string | null;
 };
 
 export type SystemSheet = {
@@ -203,7 +241,11 @@ export type CharacterProfile = {
   portraitImage?: string;
   defaultSystem: GameSystem;
   sheets: Partial<Record<GameSystem, SystemSheet>>;
-  inventory?: CharacterInventoryItem[];
+  inventory: InventoryItem[];
+  wallet: CurrencyWallet;
+  rewardHistory: RewardTransaction[];
+  progression?: CharacterProgression;
+  conditions: ActiveCondition[];
   createdAt?: string;
   updatedAt?: string;
 };
