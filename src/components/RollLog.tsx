@@ -21,12 +21,21 @@ type RollLogProps = {
   onClear: () => void | Promise<void>;
   loading?: boolean;
   storageMode?: StorageMode;
+  className?: string;
+  listClassName?: string;
 };
 
 type SystemFilter = "all" | GameSystem;
 type KindFilter = "all" | RollLogEntryKind;
 
-export function RollLog({ entries, onClear, loading = false, storageMode = "local" }: RollLogProps) {
+export function RollLog({
+  entries,
+  onClear,
+  loading = false,
+  storageMode = "local",
+  className = "p-5",
+  listClassName = "max-h-96"
+}: RollLogProps) {
   const [systemFilter, setSystemFilter] = useState<SystemFilter>("all");
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
   const [characterFilter, setCharacterFilter] = useState<string>("all");
@@ -89,7 +98,7 @@ export function RollLog({ entries, onClear, loading = false, storageMode = "loca
   }
 
   return (
-    <GlassPanel level="secondary" glow="medium" className="p-5">
+    <GlassPanel level="secondary" glow="medium" className={className}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
           <h2 className="text-lg font-semibold text-foreground">Roll Log</h2>
@@ -187,7 +196,7 @@ export function RollLog({ entries, onClear, loading = false, storageMode = "loca
 
       {copyMessage ? <p className="mt-2 text-xs text-emerald-300">{copyMessage}</p> : null}
 
-      <div className="mt-4 max-h-96 space-y-3 overflow-y-auto pr-1">
+      <div className={`mt-4 space-y-3 overflow-y-auto pr-1 ${listClassName}`}>
         {loading ? (
           <p className="rounded-lg border border-dashed border-slate-700/25 p-6 text-center text-sm text-muted-foreground">
             Loading roll log…

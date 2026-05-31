@@ -1,10 +1,16 @@
-import type { SheetAction } from "@/lib/sheets/types";
+import type { CharacterInventoryItem, SheetAction } from "@/lib/sheets/types";
 
 export type CodexEntryType =
   | "ability"
   | "spell"
   | "power"
   | "feat"
+  | "merit"
+  | "rite"
+  | "condition"
+  | "disease"
+  | "curse"
+  | "blessing"
   | "item"
   | "loot"
   | "note";
@@ -13,9 +19,36 @@ export type CodexSystem = "dnd5e" | "nwod" | "generic";
 
 export type CodexVisibility = "gm_only" | "campaign" | "public";
 
+export type CodexGrant =
+  | {
+      type: "action";
+      action: SheetAction;
+    }
+  | {
+      type: "inventory_item";
+      item: CharacterInventoryItem;
+    }
+  | {
+      type: "note";
+      title: string;
+      body: string;
+      visibility?: "public" | "gm_only" | "assigned";
+    }
+  | {
+      type: "stat_modifier";
+      target: string;
+      value: number;
+      mode: "add" | "set";
+    };
+
+export type CodexPrerequisite = {
+  label: string;
+  rule?: string;
+};
+
 export type CodexEntry = {
   id: string;
-  campaignId?: string;
+  campaignId?: string | null;
   system: CodexSystem;
   type: CodexEntryType;
   name: string;
@@ -25,6 +58,9 @@ export type CodexEntry = {
   tags: string[];
   visibility: CodexVisibility;
   actionTemplate?: SheetAction;
+  grants?: CodexGrant[];
+  prerequisites?: CodexPrerequisite[];
+  sourceLabel?: string;
   metadata?: Record<string, unknown>;
   createdBy?: string;
   createdAt?: string;
@@ -38,6 +74,12 @@ export const CODEX_ENTRY_TYPES: CodexEntryType[] = [
   "spell",
   "power",
   "feat",
+  "merit",
+  "rite",
+  "condition",
+  "disease",
+  "curse",
+  "blessing",
   "item",
   "loot",
   "note"

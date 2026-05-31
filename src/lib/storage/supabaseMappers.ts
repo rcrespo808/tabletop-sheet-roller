@@ -1,5 +1,11 @@
 import { ensureActionIds } from "@/data/characters";
-import type { CharacterKind, CharacterProfile, GameSystem, SystemSheet } from "@/lib/sheets/types";
+import type {
+  CharacterInventoryItem,
+  CharacterKind,
+  CharacterProfile,
+  GameSystem,
+  SystemSheet
+} from "@/lib/sheets/types";
 
 export type CharacterProfileRow = {
   id: string;
@@ -12,6 +18,7 @@ export type CharacterProfileRow = {
   portrait_image: string | null;
   default_system: GameSystem;
   sheets: unknown;
+  inventory?: unknown;
   created_at: string;
   updated_at: string;
 };
@@ -61,6 +68,33 @@ function parseSheets(value: unknown): CharacterProfile["sheets"] {
   return sheets;
 }
 
+function parseInventory(value: unknown): CharacterInventoryItem[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((item): item is Record<string, unknown> => {
+      return Boolean(item && typeof item === "object" && typeof item.id === "string");
+    })
+    .map((item) => {
+      const id = typeof item.id === "string" ? item.id : "";
+      return {
+        id,
+        name: typeof item.name === "string" ? item.name : id,
+        quantity: typeof item.quantity === "number" ? item.quantity : undefined,
+        description: typeof item.description === "string" ? item.description : undefined,
+        tags: Array.isArray(item.tags)
+          ? item.tags.filter((tag): tag is string => typeof tag === "string")
+          : [],
+        sourceCodexEntryId:
+          typeof item.sourceCodexEntryId === "string" ? item.sourceCodexEntryId : undefined,
+        metadata:
+          item.metadata && typeof item.metadata === "object"
+            ? (item.metadata as CharacterInventoryItem["metadata"])
+            : undefined
+      };
+    });
+}
+
 export function rowToCharacterProfile(row: CharacterProfileRow): CharacterProfile {
   const sheets = parseSheets(row.sheets);
   const sheetSystems = Object.keys(sheets) as GameSystem[];
@@ -80,6 +114,7 @@ export function rowToCharacterProfile(row: CharacterProfileRow): CharacterProfil
     portraitImage: row.portrait_image ?? undefined,
     defaultSystem,
     sheets,
+    inventory: parseInventory(row.inventory),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -96,7 +131,8 @@ export function characterProfileToInsert(profile: CharacterProfile) {
     concept: profile.concept ?? null,
     portrait_image: profile.portraitImage ?? null,
     default_system: profile.defaultSystem,
-    sheets: profile.sheets
+    sheets: profile.sheets,
+    inventory: profile.inventory ?? []
   };
 }
 
@@ -110,6 +146,7 @@ export function characterProfileToUpdate(profile: CharacterProfile) {
     concept: profile.concept ?? null,
     portrait_image: profile.portraitImage ?? null,
     default_system: profile.defaultSystem,
-    sheets: profile.sheets
+    sheets: profile.sheets,
+    inventory: profile.inventory ?? []
   };
 }

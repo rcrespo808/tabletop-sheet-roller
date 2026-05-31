@@ -1,9 +1,18 @@
 "use client";
 
+import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getSystemSheet } from "@/data/characters";
-import type { CharacterProfile, GameSystem, RollLogEntry } from "@/lib/sheets/types";
+import { getCurrentAuthState, type AuthState } from "@/lib/auth/supabaseAuth";
+import type {
+  CharacterInventoryItem,
+  CharacterProfile,
+  GameSystem,
+  RollLogEntry,
+  SheetAction
+} from "@/lib/sheets/types";
 import { getCustomActions } from "@/lib/sheets/actions";
+import { isSupabaseConfigured } from "@/lib/storage/supabaseClient";
 import {
   clearRollLogs,
   DEFAULT_ROOM_SLUG,
@@ -24,16 +33,25 @@ type CharacterSheetWorkspaceProps = {
   profile: CharacterProfile;
   selectedSystem: GameSystem;
   onProfileChange?: (profile: CharacterProfile) => void | Promise<void>;
+  isRollLogOpen?: boolean;
+  onRollLogClose?: () => void;
 };
 
 export function CharacterSheetWorkspace({
   profile,
   selectedSystem,
-  onProfileChange
+  onProfileChange,
+  isRollLogOpen = false,
+  onRollLogClose
 }: CharacterSheetWorkspaceProps) {
   const [entries, setEntries] = useState<RollLogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [rollLogStorageMode, setRollLogStorageMode] = useState<StorageMode>("local");
+  const [authState, setAuthState] = useState<AuthState>({
+    session: null,
+    user: null,
+    profile: null
+  });
   const sheet = getSystemSheet(profile, selectedSystem);
 
   useEffect(() => {
@@ -48,6 +66,30 @@ export function CharacterSheetWorkspace({
       .finally(() => {
         if (!cancelled) setLoadingLogs(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isRollLogOpen || !onRollLogClose) return;
+    const closeRollLog = onRollLogClose;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") closeRollLog();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isRollLogOpen, onRollLogClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getCurrentAuthState().then((state) => {
+      if (!cancelled) setAuthState(state);
+    });
 
     return () => {
       cancelled = true;
@@ -82,10 +124,44 @@ export function CharacterSheetWorkspace({
   }
 
   const customActions = getCustomActions(sheet);
+  const codexActions = customActions.filter((action) => action.metadata?.sourceCodexEntryId);
+  const codexInventory = (profile.inventory ?? []).filter((item) => item.sourceCodexEntryId);
+  const canRemoveCodexAttachment =
+    Boolean(onProfileChange) &&
+    (!isSupabaseConfigured() ||
+      authState.profile?.userLevel === "gm" ||
+      !profile.ownerUserId ||
+      profile.ownerUserId === authState.user?.id);
+
+  async function removeCodexAction(action: SheetAction) {
+    if (!onProfileChange) return;
+    const currentSheet = profile.sheets[selectedSystem];
+    if (!currentSheet) return;
+
+    await onProfileChange({
+      ...profile,
+      sheets: {
+        ...profile.sheets,
+        [selectedSystem]: {
+          ...currentSheet,
+          actions: currentSheet.actions.filter((current) => current.id !== action.id)
+        }
+      }
+    });
+  }
+
+  async function removeCodexInventoryItem(item: CharacterInventoryItem) {
+    if (!onProfileChange) return;
+    await onProfileChange({
+      ...profile,
+      inventory: (profile.inventory ?? []).filter((current) => current.id !== item.id)
+    });
+  }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
-      <main className="space-y-6">
+    <>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <main className="space-y-6">
         <CharacterSheetViewer
           actions={customActions}
           characterName={profile.name}
@@ -94,8 +170,8 @@ export function CharacterSheetWorkspace({
           sheet={sheet}
         />
         <CharacterStatsPanel characterName={profile.name} onRoll={addEntry} sheet={sheet} />
-      </main>
-      <aside className="space-y-6">
+        </main>
+        <aside className="space-y-6">
         {onProfileChange ? (
           <CharacterImagesPanel
             onProfileChange={onProfileChange}
@@ -109,18 +185,116 @@ export function CharacterSheetWorkspace({
           selectedSystem={selectedSystem}
           sheet={sheet}
         />
+        {codexActions.length > 0 || codexInventory.length > 0 ? (
+          <GlassPanel level="secondary" className="p-5">
+            <h2 className="text-lg font-semibold text-foreground">
+              Codex Attachments / Granted Features
+            </h2>
+            <div className="mt-4 space-y-3">
+              {codexActions.map((action) => (
+                <div
+                  className="rounded-md border border-slate-700/25 bg-slate-950/30 p-3"
+                  key={action.id}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{action.label}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {selectedSystem} / {action.type}
+                        {action.metadata?.sourceCodexName
+                          ? ` / ${action.metadata.sourceCodexName}`
+                          : ""}
+                      </p>
+                    </div>
+                    {canRemoveCodexAttachment ? (
+                      <button
+                        className="rounded-md border border-red-500/30 bg-red-950/30 px-2 py-1 text-xs font-semibold text-red-100 transition hover:bg-red-900/40"
+                        onClick={() => removeCodexAction(action)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+              {codexInventory.map((item) => (
+                <div
+                  className="rounded-md border border-slate-700/25 bg-slate-950/30 p-3"
+                  key={item.id}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{item.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Inventory grant
+                        {item.quantity ? ` / qty ${item.quantity}` : ""}
+                      </p>
+                    </div>
+                    {canRemoveCodexAttachment ? (
+                      <button
+                        className="rounded-md border border-red-500/30 bg-red-950/30 px-2 py-1 text-xs font-semibold text-red-100 transition hover:bg-red-900/40"
+                        onClick={() => removeCodexInventoryItem(item)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </GlassPanel>
+        ) : null}
         <DiceRoller
           characterName={profile.name}
           defaultSystem={selectedSystem}
           onRoll={addEntry}
         />
-        <RollLog
-          entries={entries}
-          loading={loadingLogs}
-          onClear={handleClearLogs}
-          storageMode={rollLogStorageMode}
-        />
-      </aside>
-    </div>
+        </aside>
+      </div>
+
+      {isRollLogOpen ? (
+        <div
+          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-sm"
+          onClick={onRollLogClose}
+          role="presentation"
+        >
+          <aside
+            className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-slate-700/30 bg-background/95 p-4 shadow-2xl shadow-black/40 sm:p-5"
+            id="roll-log-drawer"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-label="Roll log"
+            aria-modal="true"
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Current Session
+                </p>
+                <h2 className="text-xl font-semibold text-foreground">Roll Log</h2>
+              </div>
+              <button
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-slate-800/70 hover:text-foreground"
+                onClick={onRollLogClose}
+                type="button"
+                aria-label="Close roll log"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+            <RollLog
+              className="min-h-0 flex-1 p-4"
+              entries={entries}
+              listClassName="max-h-[calc(100vh-18rem)]"
+              loading={loadingLogs}
+              onClear={handleClearLogs}
+              storageMode={rollLogStorageMode}
+            />
+          </aside>
+        </div>
+      ) : null}
+    </>
   );
 }

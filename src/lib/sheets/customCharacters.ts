@@ -47,6 +47,7 @@ export function normalizeCharacterProfile(profile: CharacterProfile): CharacterP
     portraitImage: profile.portraitImage?.trim(),
     defaultSystem: profile.defaultSystem,
     sheets,
+    inventory: profile.inventory ?? [],
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt
   };
@@ -154,6 +155,7 @@ export function parseCharacterProfile(input: unknown): CharacterProfile | null {
       typeof candidate.portraitImage === "string" ? candidate.portraitImage : undefined,
     defaultSystem,
     sheets,
+    inventory: Array.isArray(candidate.inventory) ? candidate.inventory : [],
     createdAt: typeof candidate.createdAt === "string" ? candidate.createdAt : undefined,
     updatedAt: typeof candidate.updatedAt === "string" ? candidate.updatedAt : undefined
   });

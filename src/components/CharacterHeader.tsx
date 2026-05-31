@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ScrollText } from "lucide-react";
 import { getAvailableSystems, getSystemSheet } from "@/data/characters";
 import type { CharacterProfile, GameSystem } from "@/lib/sheets/types";
 import { SystemTabs } from "./SystemTabs";
@@ -8,12 +8,16 @@ type CharacterHeaderProps = {
   profile: CharacterProfile;
   selectedSystem: GameSystem;
   onSystemChange: (system: GameSystem) => void;
+  isRollLogOpen?: boolean;
+  onRollLogToggle?: () => void;
 };
 
 export function CharacterHeader({
   profile,
   selectedSystem,
-  onSystemChange
+  onSystemChange,
+  isRollLogOpen = false,
+  onRollLogToggle
 }: CharacterHeaderProps) {
   const systems = getAvailableSystems(profile);
   const sheet = getSystemSheet(profile, selectedSystem);
@@ -42,9 +46,27 @@ export function CharacterHeader({
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SystemTabs systems={systems} selected={selectedSystem} onSelect={onSystemChange} />
-          {sheet?.levelLabel ? (
-            <p className="text-sm text-muted-foreground">{sheet.levelLabel}</p>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            {sheet?.levelLabel ? (
+              <p className="text-sm text-muted-foreground">{sheet.levelLabel}</p>
+            ) : null}
+            {onRollLogToggle ? (
+              <button
+                className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition ${
+                  isRollLogOpen
+                    ? "border-purple-400/50 bg-purple-600/25 text-purple-100"
+                    : "border-slate-700/35 bg-slate-900/50 text-slate-100 hover:bg-slate-800/70"
+                }`}
+                onClick={onRollLogToggle}
+                type="button"
+                aria-expanded={isRollLogOpen}
+                aria-controls="roll-log-drawer"
+              >
+                <ScrollText className="h-4 w-4" aria-hidden="true" />
+                Roll Log
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
     </header>

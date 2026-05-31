@@ -8,6 +8,8 @@ export type SheetHotspot = {
   icon?: string;
 };
 
+export type SheetActionMetadata = Record<string, string | number | boolean | null | undefined>;
+
 export type AbilityKey = "str" | "dex" | "con" | "int" | "wis" | "cha";
 
 export type Dnd5eAttributes = Record<AbilityKey, number>;
@@ -115,6 +117,7 @@ export type SheetAction =
       notes?: string;
       source?: "custom" | "derived";
       hotspot?: SheetHotspot;
+      metadata?: SheetActionMetadata;
     }
   | {
       id: string;
@@ -127,6 +130,7 @@ export type SheetAction =
       notes?: string;
       source?: "custom" | "derived";
       hotspot?: SheetHotspot;
+      metadata?: SheetActionMetadata;
     }
   | {
       id: string;
@@ -139,6 +143,7 @@ export type SheetAction =
       notes?: string;
       source?: "custom" | "derived";
       hotspot?: SheetHotspot;
+      metadata?: SheetActionMetadata;
     }
   | {
       id: string;
@@ -153,6 +158,7 @@ export type SheetAction =
       notes?: string;
       source?: "custom" | "derived";
       hotspot?: SheetHotspot;
+      metadata?: SheetActionMetadata;
     }
   | {
       id: string;
@@ -161,7 +167,18 @@ export type SheetAction =
       notes: string;
       source?: "custom" | "derived";
       hotspot?: SheetHotspot;
+      metadata?: SheetActionMetadata;
     };
+
+export type CharacterInventoryItem = {
+  id: string;
+  name: string;
+  quantity?: number;
+  description?: string;
+  tags?: string[];
+  sourceCodexEntryId?: string;
+  metadata?: Record<string, string | number | boolean | null | undefined>;
+};
 
 export type SystemSheet = {
   system: GameSystem;
@@ -186,6 +203,7 @@ export type CharacterProfile = {
   portraitImage?: string;
   defaultSystem: GameSystem;
   sheets: Partial<Record<GameSystem, SystemSheet>>;
+  inventory?: CharacterInventoryItem[];
   createdAt?: string;
   updatedAt?: string;
 };

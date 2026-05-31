@@ -20,6 +20,7 @@ function CharacterPageContent({ characterId }: { characterId: string }) {
   const [initialSystem, setInitialSystem] = useState<GameSystem | undefined>();
   const [loading, setLoading] = useState(true);
   const [systemByCharacter, setSystemByCharacter] = useState<Record<string, GameSystem>>({});
+  const [isRollLogOpen, setIsRollLogOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +92,8 @@ function CharacterPageContent({ characterId }: { characterId: string }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <CharacterHeader
+        isRollLogOpen={isRollLogOpen}
+        onRollLogToggle={() => setIsRollLogOpen((current) => !current)}
         profile={profile}
         selectedSystem={activeSystem}
         onSystemChange={handleSystemChange}
@@ -98,6 +101,8 @@ function CharacterPageContent({ characterId }: { characterId: string }) {
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <CharacterSheetWorkspace
+          isRollLogOpen={isRollLogOpen}
+          onRollLogClose={() => setIsRollLogOpen(false)}
           onProfileChange={handleProfileChange}
           profile={profile}
           selectedSystem={activeSystem}

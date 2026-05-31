@@ -12,6 +12,9 @@ function normalizeCodexEntry(entry: CodexEntry): CodexEntry {
     description: entry.description.trim(),
     rulesText: entry.rulesText?.trim() || undefined,
     tags: entry.tags.map((tag) => tag.trim()).filter(Boolean),
+    grants: entry.grants ?? [],
+    prerequisites: entry.prerequisites ?? [],
+    sourceLabel: entry.sourceLabel?.trim() || undefined,
     metadata: entry.metadata ?? {}
   };
 }
