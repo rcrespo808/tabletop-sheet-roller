@@ -1,6 +1,7 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
+import Link from "next/link";
+import { BookOpen, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AuthPanel } from "@/components/AuthPanel";
 import { CharacterProfileCard } from "@/components/CharacterProfileCard";
@@ -65,7 +66,16 @@ export default function HomePage() {
                 </h1>
               </div>
             </div>
-            <StorageStatusBadge mode={storageMode} />
+            <div className="flex flex-wrap items-center gap-2">
+              <StorageStatusBadge mode={storageMode} />
+              <Link
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
+                href="/codex"
+              >
+                <BookOpen className="h-4 w-4" aria-hidden="true" />
+                Codex
+              </Link>
+            </div>
           </div>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
             One character identity, multiple system sheets. Structured stats drive derived quick
