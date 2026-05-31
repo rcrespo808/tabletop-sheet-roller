@@ -1,9 +1,11 @@
 import { ensureActionIds } from "@/data/characters";
-import type { CharacterProfile, GameSystem, SystemSheet } from "@/lib/sheets/types";
+import type { CharacterKind, CharacterProfile, GameSystem, SystemSheet } from "@/lib/sheets/types";
 
 export type CharacterProfileRow = {
   id: string;
+  owner_user_id: string | null;
   owner_label: string | null;
+  character_kind: CharacterKind | null;
   name: string;
   subtitle: string | null;
   concept: string | null;
@@ -69,7 +71,9 @@ export function rowToCharacterProfile(row: CharacterProfileRow): CharacterProfil
 
   return {
     id: row.id,
+    ownerUserId: row.owner_user_id ?? undefined,
     ownerLabel: row.owner_label ?? undefined,
+    characterKind: row.character_kind ?? "player_character",
     name: row.name,
     subtitle: row.subtitle ?? undefined,
     concept: row.concept ?? undefined,
@@ -84,7 +88,9 @@ export function rowToCharacterProfile(row: CharacterProfileRow): CharacterProfil
 export function characterProfileToInsert(profile: CharacterProfile) {
   return {
     id: profile.id,
+    owner_user_id: profile.ownerUserId ?? undefined,
     owner_label: profile.ownerLabel ?? null,
+    character_kind: profile.characterKind ?? "player_character",
     name: profile.name,
     subtitle: profile.subtitle ?? null,
     concept: profile.concept ?? null,
@@ -96,7 +102,9 @@ export function characterProfileToInsert(profile: CharacterProfile) {
 
 export function characterProfileToUpdate(profile: CharacterProfile) {
   return {
+    owner_user_id: profile.ownerUserId ?? undefined,
     owner_label: profile.ownerLabel ?? null,
+    character_kind: profile.characterKind ?? "player_character",
     name: profile.name,
     subtitle: profile.subtitle ?? null,
     concept: profile.concept ?? null,

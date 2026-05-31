@@ -1,4 +1,6 @@
 export type GameSystem = "dnd5e" | "nwod";
+export type UserLevel = "player" | "gm";
+export type CharacterKind = "player_character" | "gm_character";
 
 export type SheetHotspot = {
   x: number;
@@ -175,7 +177,9 @@ export type SystemSheet = {
 
 export type CharacterProfile = {
   id: string;
+  ownerUserId?: string;
   ownerLabel?: string;
+  characterKind?: CharacterKind;
   name: string;
   subtitle?: string;
   concept?: string;

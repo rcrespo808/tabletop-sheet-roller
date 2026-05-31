@@ -2,7 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { CharacterProfile, GameSystem } from "@/lib/sheets/types";
+import type { CharacterKind, CharacterProfile, GameSystem } from "@/lib/sheets/types";
 import { parseCharacterProfile } from "@/lib/sheets/customCharacters";
 import { applyImageToProfile } from "@/lib/storage/characterImages";
 import type { CharacterImageUploadResult } from "@/lib/storage/characterImages";
@@ -35,6 +35,7 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [system, setSystem] = useState<GameSystem>("dnd5e");
+  const [characterKind, setCharacterKind] = useState<CharacterKind>("player_character");
   const [portraitImage, setPortraitImage] = useState<string | undefined>();
   const [sheetImage, setSheetImage] = useState<string | undefined>();
   const [json, setJson] = useState(starterJson);
@@ -45,6 +46,7 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
     let profile: CharacterProfile = {
       id,
       name,
+      characterKind,
       defaultSystem: system,
       sheets: {
         [system]: {
@@ -62,7 +64,7 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
     }
 
     return profile;
-  }, [id, name, portraitImage, sheetImage, system]);
+  }, [characterKind, id, name, portraitImage, sheetImage, system]);
 
   async function handlePortraitUpload(result: CharacterImageUploadResult) {
     setPortraitImage(result.publicUrl);
@@ -82,6 +84,7 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
     setMessage(`Added ${name}.`);
     setId("");
     setName("");
+    setCharacterKind("player_character");
     setPortraitImage(undefined);
     setSheetImage(undefined);
   }
@@ -148,6 +151,14 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
           >
             <option value="dnd5e">D&D 5e</option>
             <option value="nwod">NWoD</option>
+          </select>
+          <select
+            className="rounded-md border border-slate-700/30 bg-slate-900/60 p-2 text-sm text-foreground outline-none focus:border-purple-500/50"
+            value={characterKind}
+            onChange={(e) => setCharacterKind(e.target.value as CharacterKind)}
+          >
+            <option value="player_character">Player Character</option>
+            <option value="gm_character">GM Character</option>
           </select>
         </div>
 

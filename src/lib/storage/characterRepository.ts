@@ -1,4 +1,5 @@
 import { characterProfiles } from "@/data/characters";
+import { getCurrentAuthState } from "@/lib/auth/supabaseAuth";
 import { normalizeCharacterProfile } from "@/lib/sheets/customCharacters";
 import {
   deleteLocalCharacter,
@@ -60,6 +61,18 @@ async function syncProfileImageAssets(profile: CharacterProfile): Promise<void> 
   }
 }
 
+async function withCurrentOwner(profile: CharacterProfile): Promise<CharacterProfile> {
+  if (!isSupabaseConfigured() || profile.ownerUserId) return profile;
+
+  const authState = await getCurrentAuthState();
+  if (!authState.user) return profile;
+
+  return {
+    ...profile,
+    ownerUserId: authState.user.id
+  };
+}
+
 export async function listCharacters(): Promise<CharacterProfile[]> {
   if (isSupabaseConfigured()) {
     try {
@@ -98,7 +111,7 @@ export async function getCharacter(id: string): Promise<CharacterProfile | null>
 }
 
 export async function saveCharacter(profile: CharacterProfile): Promise<CharacterProfile> {
-  const normalized = normalizeCharacterProfile(profile);
+  const normalized = await withCurrentOwner(normalizeCharacterProfile(profile));
   let saved = normalized;
 
   if (isSupabaseConfigured()) {

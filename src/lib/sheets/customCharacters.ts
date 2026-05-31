@@ -1,5 +1,6 @@
 import { ensureActionIds, getCharacterProfile, characterProfiles } from "@/data/characters";
 import type {
+  CharacterKind,
   CharacterProfile,
   GameSystem,
   LegacyCharacterSheet,
@@ -37,7 +38,9 @@ export function normalizeCharacterProfile(profile: CharacterProfile): CharacterP
   return {
     ...profile,
     id: profile.id.trim(),
+    ownerUserId: profile.ownerUserId,
     ownerLabel: profile.ownerLabel?.trim(),
+    characterKind: profile.characterKind ?? "player_character",
     name: profile.name.trim(),
     subtitle: profile.subtitle?.trim(),
     concept: profile.concept?.trim(),
@@ -51,6 +54,10 @@ export function normalizeCharacterProfile(profile: CharacterProfile): CharacterP
 
 function isGameSystem(value: unknown): value is GameSystem {
   return value === "dnd5e" || value === "nwod";
+}
+
+function isCharacterKind(value: unknown): value is CharacterKind {
+  return value === "player_character" || value === "gm_character";
 }
 
 function parseSystemSheet(input: unknown, system: GameSystem): SystemSheet | null {
@@ -136,7 +143,11 @@ export function parseCharacterProfile(input: unknown): CharacterProfile | null {
   return normalizeCharacterProfile({
     id: candidate.id,
     name: candidate.name,
+    ownerUserId: typeof candidate.ownerUserId === "string" ? candidate.ownerUserId : undefined,
     ownerLabel: typeof candidate.ownerLabel === "string" ? candidate.ownerLabel : undefined,
+    characterKind: isCharacterKind(candidate.characterKind)
+      ? candidate.characterKind
+      : "player_character",
     subtitle: typeof candidate.subtitle === "string" ? candidate.subtitle : undefined,
     concept: typeof candidate.concept === "string" ? candidate.concept : undefined,
     portraitImage:

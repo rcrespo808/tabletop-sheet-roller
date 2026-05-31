@@ -1,7 +1,8 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { AuthPanel } from "@/components/AuthPanel";
 import { CharacterProfileCard } from "@/components/CharacterProfileCard";
 import { CreateCharacterPanel } from "@/components/CreateCharacterPanel";
 import { GlassPanel } from "@/components/GlassPanel";
@@ -14,6 +15,13 @@ export default function HomePage() {
   const [profiles, setProfiles] = useState<CharacterProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [storageMode, setStorageMode] = useState<StorageMode>("local");
+
+  const refreshProfiles = useCallback(async () => {
+    const next = await listCharacters();
+    setProfiles(next);
+    setStorageMode(getStorageMode());
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,11 +38,13 @@ export default function HomePage() {
     };
   }, []);
 
+  const handleAuthChange = useCallback(() => {
+    void refreshProfiles();
+  }, [refreshProfiles]);
+
   async function addProfile(profile: CharacterProfile) {
     await saveCharacter(profile);
-    const next = await listCharacters();
-    setProfiles(next);
-    setStorageMode(getStorageMode());
+    await refreshProfiles();
   }
 
   return (
@@ -65,7 +75,11 @@ export default function HomePage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <CreateCharacterPanel onAdd={addProfile} />
+        <AuthPanel onAuthChange={handleAuthChange} />
+
+        <div className="mt-4">
+          <CreateCharacterPanel onAdd={addProfile} />
+        </div>
 
         <div className="mb-8 mt-8">
           <h2 className="text-xl font-semibold text-foreground">Your Characters</h2>

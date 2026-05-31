@@ -55,9 +55,14 @@ export function CharacterProfileCard({ profile }: CharacterProfileCardProps) {
 
         <div className="space-y-4 p-4">
           <div>
-            <h2 className="text-lg font-semibold text-foreground transition-colors group-hover:text-purple-100">
-              {profile.name}
-            </h2>
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="min-w-0 text-lg font-semibold text-foreground transition-colors group-hover:text-purple-100">
+                {profile.name}
+              </h2>
+              <span className="shrink-0 rounded-md border border-slate-700/30 bg-slate-900/60 px-2 py-1 text-[11px] font-semibold uppercase text-muted-foreground">
+                {profile.characterKind === "gm_character" ? "GM" : "PC"}
+              </span>
+            </div>
             {profile.subtitle ? (
               <p className="mt-1 text-sm text-muted-foreground">{profile.subtitle}</p>
             ) : null}

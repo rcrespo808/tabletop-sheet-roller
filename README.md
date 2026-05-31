@@ -11,8 +11,7 @@ This app supports a fast first iteration:
 - Prepared action buttons
 - Manual D&D 5e and NWoD dice rolling
 - Local browser-session roll log
-
-There is no backend, auth, persistence, or multiplayer in this version.
+- Optional Supabase persistence and Auth for owned character libraries
 
 ## Run Locally
 
@@ -59,11 +58,11 @@ Sheet image paths are placeholders. Missing images show a fallback panel instead
 
 ## MVP Limitations
 
-- Roll log is local React state and clears on refresh.
-- Characters are hardcoded in `src/data/characters.ts`.
+- Roll log and characters fall back to local browser storage when Supabase is unavailable.
+- Seed characters are hardcoded in `src/data/characters.ts`.
 - Sheet images are static files only.
 - No editable structured sheets yet.
-- No shared rooms or realtime table log.
+- Table membership and GM/player roles have database foundations, but no full table-management UI yet.
 
 ## Next Iteration
 
@@ -73,10 +72,8 @@ Room-based realtime logs are the next useful step. Supabase Realtime or PartyKit
 
 Suggested next implementation steps:
 
-1. Add SQL migrations for `characters`, `character_actions`, and `roll_logs` tables.
-2. Add Row Level Security policies for read/write behavior (or keep service-role only for admin tasks).
-3. Add server-side Supabase client wiring for secure writes using `SUPABASE_SECRET_KEY`/`SUPABASE_SERVICE_ROLE_KEY`.
-4. Add browser-side Supabase client wiring for public reads/realtime using `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
-5. Replace hardcoded characters with reads mapped from Supabase DTO rows.
-6. Persist roll logs to `roll_logs` and subscribe to realtime updates for room timelines.
-7. Add integration tests for DTO mapping and migration smoke checks in CI.
+1. Enable email confirmation and, optionally, Google OAuth in Supabase Auth.
+2. Apply the migrations in `supabase/migrations`.
+3. Build table-management UI on top of `game_tables` and `game_table_members`.
+4. Subscribe to realtime room timelines for shared roll logs.
+5. Add integration tests for DTO mapping and migration smoke checks in CI.
