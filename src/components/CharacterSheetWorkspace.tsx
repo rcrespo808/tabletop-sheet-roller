@@ -213,9 +213,11 @@ export function CharacterSheetWorkspace({
         <CharacterRewardsPanel
           canManageRewards={canManageRewards}
           canToggleEquipment={canToggleEquipment}
+          onRollLogEntry={addEntry}
           onProfileChange={onProfileChange}
           profile={profile}
           selectedSystem={selectedSystem}
+          sheet={sheet}
         />
         <DiceRoller
           characterName={profile.name}

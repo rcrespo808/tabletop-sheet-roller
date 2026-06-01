@@ -170,6 +170,21 @@ export type SheetAction =
       metadata?: SheetActionMetadata;
     };
 
+export type InventoryItemPowerReset = "short_rest" | "long_rest" | "session" | "never";
+
+export type InventoryItemPower = {
+  id: string;
+  label: string;
+  description?: string;
+  action: SheetAction;
+  charges?: {
+    current: number;
+    max: number;
+    reset?: InventoryItemPowerReset;
+  };
+  consumesItem?: boolean;
+};
+
 export type InventoryItem = {
   id: string;
   codexEntryId?: string;
@@ -178,6 +193,7 @@ export type InventoryItem = {
   equipped?: boolean;
   rarity?: string;
   notes?: string;
+  powers?: InventoryItemPower[];
   sourceCodexEntryId?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
@@ -216,6 +232,7 @@ export type ActiveCondition = {
   description?: string;
   source?: string;
   expiresAt?: string | null;
+  metadata?: Record<string, unknown>;
 };
 
 export type SystemSheet = {

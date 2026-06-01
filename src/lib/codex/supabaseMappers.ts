@@ -7,6 +7,7 @@ import type {
   CodexVisibility
 } from "@/lib/codex/types";
 import type { CharacterInventoryItem, SheetAction } from "@/lib/sheets/types";
+import { normalizeInventoryItem } from "@/lib/sheets/inventory";
 
 export type CodexEntryRow = {
   id: string;
@@ -72,23 +73,7 @@ function parseActionTemplate(value: unknown): SheetAction | undefined {
 }
 
 function parseInventoryItem(value: unknown): CharacterInventoryItem | null {
-  if (!value || typeof value !== "object") return null;
-  const candidate = value as Partial<CharacterInventoryItem>;
-  if (typeof candidate.id !== "string" || typeof candidate.name !== "string") return null;
-  return {
-    id: candidate.id,
-    name: candidate.name,
-    codexEntryId: typeof candidate.codexEntryId === "string" ? candidate.codexEntryId : undefined,
-    quantity: typeof candidate.quantity === "number" ? candidate.quantity : 1,
-    equipped: typeof candidate.equipped === "boolean" ? candidate.equipped : false,
-    rarity: typeof candidate.rarity === "string" ? candidate.rarity : undefined,
-    notes: typeof candidate.notes === "string" ? candidate.notes : undefined,
-    tags: Array.isArray(candidate.tags) ? candidate.tags : [],
-    sourceCodexEntryId:
-      typeof candidate.sourceCodexEntryId === "string" ? candidate.sourceCodexEntryId : undefined,
-    metadata:
-      candidate.metadata && typeof candidate.metadata === "object" ? candidate.metadata : undefined
-  };
+  return normalizeInventoryItem(value);
 }
 
 function parseGrants(value: unknown): CodexGrant[] {

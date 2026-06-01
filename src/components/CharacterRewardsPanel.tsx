@@ -1,23 +1,31 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { Dices, Plus, Trash2, Zap } from "lucide-react";
 import { useMemo, useState } from "react";
+import { executeSheetAction } from "@/lib/sheets/rollAction";
+import { executeInventoryItemPower } from "@/lib/sheets/inventoryItemPowers";
 import type {
   ActiveCondition,
   CharacterProfile,
   CurrencyWallet,
   GameSystem,
   InventoryItem,
-  RewardTransaction
+  InventoryItemPower,
+  RollLogEntry,
+  RewardTransaction,
+  SystemSheet
 } from "@/lib/sheets/types";
+import { isDnd5eSheet } from "@/lib/sheets/types";
 import { GlassPanel } from "./GlassPanel";
 
 type CharacterRewardsPanelProps = {
   profile: CharacterProfile;
   selectedSystem: GameSystem;
+  sheet: SystemSheet;
   canManageRewards: boolean;
   canToggleEquipment: boolean;
   onProfileChange?: (profile: CharacterProfile) => void | Promise<void>;
+  onRollLogEntry?: (entry: RollLogEntry) => void | Promise<void>;
 };
 
 const WALLET_KEYS = ["gp", "sp", "cp", "xp"] as const;
@@ -68,12 +76,44 @@ function formatWalletValue(wallet: CurrencyWallet, key: string): number {
   return numberOrZero(wallet.custom?.[key]);
 }
 
+function powerKey(item: InventoryItem, power: InventoryItemPower): string {
+  return `${item.id}:${power.id}`;
+}
+
+function powerHasCharges(power: InventoryItemPower): boolean {
+  return !power.charges || power.charges.current > 0;
+}
+
+function formatChargeReset(reset: NonNullable<InventoryItemPower["charges"]>["reset"]): string {
+  if (!reset) return "";
+  return reset.replace("_", " ");
+}
+
+function spellMetadataRows(sheet: SystemSheet, power: InventoryItemPower): string[] {
+  const metadata = power.action.metadata ?? {};
+  const rows: string[] = [];
+
+  if (metadata.usesSpellSaveDc && isDnd5eSheet(sheet)) {
+    const dc = sheet.stats?.spellSaveDc;
+    rows.push(`Spell Save DC ${typeof dc === "number" ? dc : "not set"}`);
+  }
+  if (typeof metadata.saveAbility === "string") {
+    rows.push(`${metadata.saveAbility.toUpperCase()} save`);
+  }
+  if (typeof metadata.damageRoll === "string") {
+    rows.push(`Damage ${metadata.damageRoll}`);
+  }
+  return rows;
+}
+
 export function CharacterRewardsPanel({
   profile,
   selectedSystem,
+  sheet,
   canManageRewards,
   canToggleEquipment,
-  onProfileChange
+  onProfileChange,
+  onRollLogEntry
 }: CharacterRewardsPanelProps) {
   const [itemName, setItemName] = useState("");
   const [itemQuantity, setItemQuantity] = useState("1");
@@ -91,12 +131,14 @@ export function CharacterRewardsPanel({
   const [conditionName, setConditionName] = useState("");
   const [conditionDescription, setConditionDescription] = useState("");
   const [conditionSource, setConditionSource] = useState("");
+  const [powerErrors, setPowerErrors] = useState<Record<string, string>>({});
 
   const wallet = profile.wallet ?? {};
   const inventory = profile.inventory ?? [];
   const rewardHistory = profile.rewardHistory ?? [];
   const conditions = profile.conditions ?? [];
   const progression = profile.progression ?? {};
+  const canUseItemPowers = Boolean(onProfileChange && onRollLogEntry);
 
   const walletRows = useMemo(() => {
     const rows = WALLET_KEYS.map((key) => ({ key, label: key.toUpperCase() }));
@@ -110,6 +152,76 @@ export function CharacterRewardsPanel({
   async function persist(nextProfile: CharacterProfile) {
     if (!onProfileChange) return;
     await onProfileChange(nextProfile);
+  }
+
+  function setPowerError(item: InventoryItem, power: InventoryItemPower, error: string | null) {
+    const key = powerKey(item, power);
+    setPowerErrors((current) => {
+      const next = { ...current };
+      if (error) {
+        next[key] = error;
+      } else {
+        delete next[key];
+      }
+      return next;
+    });
+  }
+
+  async function handleInventoryPowerUse(item: InventoryItem, power: InventoryItemPower) {
+    if (!canUseItemPowers || !onRollLogEntry) return;
+    setPowerError(item, power, null);
+
+    try {
+      const result = executeInventoryItemPower({
+        character: profile,
+        system: selectedSystem,
+        sheet,
+        item,
+        power
+      });
+      if (result.updatedCharacter) {
+        await persist(result.updatedCharacter);
+      }
+      await onRollLogEntry(result.logEntry);
+    } catch (error) {
+      setPowerError(item, power, error instanceof Error ? error.message : "Item power failed.");
+    }
+  }
+
+  async function rollPowerDamage(item: InventoryItem, power: InventoryItemPower) {
+    if (!onRollLogEntry || selectedSystem !== "dnd5e") return;
+    const damageRoll = power.action.metadata?.damageRoll;
+    if (typeof damageRoll !== "string" || !damageRoll.trim()) return;
+    setPowerError(item, power, null);
+
+    try {
+      const spellName =
+        typeof power.action.metadata?.spellName === "string"
+          ? power.action.metadata.spellName
+          : power.label;
+      await onRollLogEntry(
+        executeSheetAction(
+          sheet,
+          {
+            id: `${power.action.id}-damage`,
+            type: "dnd-roll",
+            label: `${item.name}: ${spellName} Damage`,
+            roll: damageRoll,
+            notes: power.action.notes,
+            source: "custom",
+            metadata: {
+              ...(power.action.metadata ?? {}),
+              sourceItemId: item.id,
+              sourcePowerId: power.id
+            }
+          },
+          profile.name,
+          selectedSystem
+        )
+      );
+    } catch (error) {
+      setPowerError(item, power, error instanceof Error ? error.message : "Damage roll failed.");
+    }
   }
 
   async function addInventoryItem() {
@@ -461,6 +573,99 @@ export function CharacterRewardsPanel({
                     />
                   ) : null}
                 </div>
+                {item.powers && item.powers.length > 0 ? (
+                  <div className="mt-3 space-y-2 border-t border-slate-700/25 pt-3">
+                    {item.powers.map((power) => {
+                      const metadataRows = spellMetadataRows(sheet, power);
+                      const chargeReset = formatChargeReset(power.charges?.reset);
+                      const disabled =
+                        !canUseItemPowers || item.quantity <= 0 || !powerHasCharges(power);
+                      const error = powerErrors[powerKey(item, power)];
+                      const damageRoll = power.action.metadata?.damageRoll;
+                      const canRollDamage =
+                        selectedSystem === "dnd5e" &&
+                        typeof damageRoll === "string" &&
+                        damageRoll.trim().length > 0 &&
+                        Boolean(onRollLogEntry);
+
+                      return (
+                        <div
+                          className="rounded-md border border-slate-700/25 bg-slate-900/35 p-3"
+                          key={power.id}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold uppercase text-slate-200">
+                                {power.label}
+                              </p>
+                              {power.description ? (
+                                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                  {power.description}
+                                </p>
+                              ) : null}
+                              {metadataRows.length > 0 ? (
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  {metadataRows.map((row) => (
+                                    <span
+                                      className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2 py-0.5 text-[11px] font-medium text-cyan-100"
+                                      key={row}
+                                    >
+                                      {row}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {power.charges ? (
+                                  <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-100">
+                                    {power.charges.current}/{power.charges.max}
+                                    {chargeReset ? ` ${chargeReset}` : ""}
+                                  </span>
+                                ) : null}
+                                {power.consumesItem ? (
+                                  <span className="rounded-full border border-red-500/25 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-100">
+                                    Consumes item
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 flex-wrap gap-2">
+                              {canRollDamage ? (
+                                <button
+                                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-amber-500/35 bg-amber-600/20 px-2.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-600/30"
+                                  onClick={() => rollPowerDamage(item, power)}
+                                  type="button"
+                                >
+                                  <Dices className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Damage
+                                </button>
+                              ) : null}
+                              <button
+                                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-purple-500/35 bg-purple-600/20 px-2.5 text-xs font-semibold text-purple-100 transition hover:bg-purple-600/30 disabled:cursor-not-allowed disabled:opacity-45"
+                                disabled={disabled}
+                                onClick={() => handleInventoryPowerUse(item, power)}
+                                title={
+                                  !canUseItemPowers
+                                    ? "Character saving and roll logging are unavailable."
+                                    : item.quantity <= 0
+                                      ? "No quantity remaining."
+                                      : !powerHasCharges(power)
+                                        ? "No charges remaining."
+                                        : undefined
+                                }
+                                type="button"
+                              >
+                                <Zap className="h-3.5 w-3.5" aria-hidden="true" />
+                                {power.action.type === "note" || power.consumesItem ? "Use" : "Roll"}
+                              </button>
+                            </div>
+                          </div>
+                          {error ? <p className="mt-2 text-xs text-red-300">{error}</p> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
             ))
           )}

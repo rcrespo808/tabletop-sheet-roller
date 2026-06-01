@@ -10,6 +10,7 @@ import type {
   SheetAction,
   SystemSheet
 } from "@/lib/sheets/types";
+import { normalizeInventory } from "@/lib/sheets/inventory";
 
 const STORAGE_KEY_V2 = "tsr.customCharacters.v2";
 const STORAGE_KEY_V1 = "tsr.customCharacters.v1";
@@ -25,40 +26,7 @@ export type CharacterLookupResult = {
 };
 
 function parseInventory(input: unknown): CharacterProfile["inventory"] {
-  if (!Array.isArray(input)) return [];
-
-  return input
-    .filter((item): item is Record<string, unknown> => {
-      return Boolean(item && typeof item === "object" && typeof item.id === "string");
-    })
-    .map((item) => ({
-      id: typeof item.id === "string" ? item.id : "",
-      codexEntryId:
-        typeof item.codexEntryId === "string"
-          ? item.codexEntryId
-          : typeof item.sourceCodexEntryId === "string"
-            ? item.sourceCodexEntryId
-            : undefined,
-      name: typeof item.name === "string" ? item.name : String(item.id),
-      quantity: typeof item.quantity === "number" ? item.quantity : 1,
-      equipped: typeof item.equipped === "boolean" ? item.equipped : false,
-      rarity: typeof item.rarity === "string" ? item.rarity : undefined,
-      notes:
-        typeof item.notes === "string"
-          ? item.notes
-          : typeof item.description === "string"
-            ? item.description
-            : undefined,
-      sourceCodexEntryId:
-        typeof item.sourceCodexEntryId === "string" ? item.sourceCodexEntryId : undefined,
-      tags: Array.isArray(item.tags)
-        ? item.tags.filter((tag): tag is string => typeof tag === "string")
-        : [],
-      metadata:
-        item.metadata && typeof item.metadata === "object"
-          ? (item.metadata as Record<string, unknown>)
-          : undefined
-    }));
+  return normalizeInventory(input);
 }
 
 function parseWallet(input: unknown): CurrencyWallet {
@@ -130,7 +98,11 @@ function parseConditions(input: unknown): ActiveCondition[] {
       description: typeof item.description === "string" ? item.description : undefined,
       source: typeof item.source === "string" ? item.source : undefined,
       expiresAt:
-        typeof item.expiresAt === "string" || item.expiresAt === null ? item.expiresAt : undefined
+        typeof item.expiresAt === "string" || item.expiresAt === null ? item.expiresAt : undefined,
+      metadata:
+        item.metadata && typeof item.metadata === "object"
+          ? (item.metadata as Record<string, unknown>)
+          : undefined
     }));
 }
 

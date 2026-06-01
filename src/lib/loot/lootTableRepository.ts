@@ -1,6 +1,7 @@
 import { starterLootTables } from "@/data/loot/starterLootTables";
 import { getCurrentAuthState } from "@/lib/auth/supabaseAuth";
 import { LOCAL_DEMO_CAMPAIGN_ID, type LootTable, type LootTableEntry } from "@/lib/loot/types";
+import { normalizeInventoryItem } from "@/lib/sheets/inventory";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/storage/supabaseClient";
 import type { StorageMode } from "@/lib/storage/types";
 
@@ -38,13 +39,22 @@ function parseEntries(value: unknown): LootTableEntry[] {
           entry.reward
       );
     })
-    .map((entry) => ({
-      id: entry.id as string,
-      label: entry.label as string,
-      weight: typeof entry.weight === "number" && Number.isFinite(entry.weight) ? entry.weight : 1,
-      reward: entry.reward as LootTableEntry["reward"],
-      notes: typeof entry.notes === "string" ? entry.notes : undefined
-    }));
+    .map((entry) => {
+      const reward = entry.reward as LootTableEntry["reward"];
+      return {
+        id: entry.id as string,
+        label: entry.label as string,
+        weight: typeof entry.weight === "number" && Number.isFinite(entry.weight) ? entry.weight : 1,
+        reward:
+          reward.type === "item"
+            ? {
+                ...reward,
+                item: normalizeInventoryItem(reward.item) ?? reward.item
+              }
+            : reward,
+        notes: typeof entry.notes === "string" ? entry.notes : undefined
+      };
+    });
 }
 
 function rowToLootTable(row: LootTableRow): LootTable {

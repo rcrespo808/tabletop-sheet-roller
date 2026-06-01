@@ -2,6 +2,144 @@ import type { CodexEntry } from "@/lib/codex/types";
 
 export const customSampleCodex: CodexEntry[] = [
   {
+    id: "item-spell-scroll-moonbeam",
+    system: "dnd5e",
+    type: "item",
+    name: "Spell Scroll: Moonbeam",
+    subtitle: "A silvered vellum scroll sealed with pale wax",
+    description:
+      "A single-use spell scroll that calls down pale radiant fire using the reader's current spell save DC.",
+    rulesText:
+      "Use the item power from inventory. It logs the spell note, shows the character's Spell Save DC, and can roll 2d10 radiant damage.",
+    tags: ["custom", "spell-scroll", "moonbeam", "consumable"],
+    visibility: "campaign",
+    sourceLabel: "Campaign sample",
+    grants: [
+      {
+        type: "inventory_item",
+        item: {
+          id: "item-spell-scroll-moonbeam",
+          name: "Spell Scroll: Moonbeam",
+          quantity: 1,
+          rarity: "uncommon",
+          notes: "A silvered vellum scroll sealed with pale wax.",
+          powers: [
+            {
+              id: "power-cast-moonbeam",
+              label: "Cast Moonbeam",
+              description: "Use the character sheet spell save DC. Damage can be rolled from this item.",
+              consumesItem: true,
+              action: {
+                id: "action-cast-moonbeam",
+                type: "note",
+                label: "Cast Moonbeam",
+                notes:
+                  "Creatures entering or starting in the beam make a CON save against your Spell Save DC. Roll 2d10 radiant damage.",
+                metadata: {
+                  usesSpellSaveDc: true,
+                  saveAbility: "con",
+                  damageRoll: "2d10",
+                  spellName: "Moonbeam"
+                }
+              }
+            }
+          ],
+          tags: ["custom", "spell-scroll", "consumable"]
+        }
+      }
+    ]
+  },
+  {
+    id: "item-ring-marsh-breath",
+    system: "dnd5e",
+    type: "item",
+    name: "Ring of Marsh-Breath",
+    subtitle: "Swamp survival ring",
+    description:
+      "A green-black ring that steadies the lungs against swamp fumes, drowning panic, and corpse-gas.",
+    rulesText:
+      "Inventory power: roll a Constitution save with a +2 item modifier when the ring helps the fiction.",
+    tags: ["custom", "magic-item", "survival", "mire"],
+    visibility: "campaign",
+    sourceLabel: "Mire sample",
+    grants: [
+      {
+        type: "inventory_item",
+        item: {
+          id: "item-ring-marsh-breath",
+          name: "Ring of Marsh-Breath",
+          quantity: 1,
+          rarity: "uncommon",
+          notes: "While worn, the bearer can hold breath twice as long and has an edge against swamp fumes.",
+          powers: [
+            {
+              id: "power-marsh-lung-focus",
+              label: "Marsh-Lung Focus",
+              description: "Steady breath against fumes, drowning, or swamp gases.",
+              action: {
+                id: "action-marsh-lung-focus",
+                type: "dnd-check",
+                label: "Marsh-Lung Focus",
+                ability: "con",
+                save: true,
+                modifier: 2,
+                notes: "Use the ring to steady breath against fumes, drowning, or swamp gases."
+              }
+            }
+          ],
+          tags: ["custom", "magic-item", "survival"]
+        }
+      }
+    ]
+  },
+  {
+    id: "item-reliquary-many-teeth",
+    system: "nwod",
+    type: "item",
+    name: "Reliquary of the Many Teeth",
+    subtitle: "A grisly chapel relic",
+    description:
+      "A box of small teeth and chewed prayer strips used to focus occult impressions through vermin signs.",
+    rulesText:
+      "Inventory power: Wits + Occult + 2, rote, 9-again. One use per session.",
+    tags: ["custom", "rat-chapel", "relic", "occult"],
+    visibility: "campaign",
+    sourceLabel: "Reverend of Rats sample",
+    grants: [
+      {
+        type: "inventory_item",
+        item: {
+          id: "item-reliquary-many-teeth",
+          name: "Reliquary of the Many Teeth",
+          quantity: 1,
+          rarity: "rare",
+          notes:
+            "A grisly relic. Once per story, convert a failed Investigation or Stealth roll involving rats into a dramatic clue at a cost chosen by the GM.",
+          powers: [
+            {
+              id: "power-invoke-many-teeth",
+              label: "Invoke Many Teeth",
+              description: "Read the tooth-signs for hidden vermin-borne clues.",
+              charges: { current: 1, max: 1, reset: "session" },
+              action: {
+                id: "action-invoke-many-teeth",
+                type: "nwod-check",
+                label: "Invoke Many Teeth",
+                attribute: "wits",
+                skill: "occult",
+                modifier: 2,
+                rote: true,
+                again: 9,
+                notes: "Use the reliquary to pull a clue through vermin omens."
+              }
+            }
+          ],
+          tags: ["custom", "relic", "occult"]
+        }
+      }
+    ]
+  },
+  {
     id: "seed-custom-rat-chapel-reliquary",
     system: "generic",
     type: "item",

@@ -6,6 +6,7 @@ import type {
   CurrencyWallet,
   GameSystem,
   InventoryItem,
+  InventoryItemPower,
   RewardTransaction,
   SheetAction
 } from "@/lib/sheets/types";
@@ -127,11 +128,26 @@ function appendOrIncrementInventory(
     ];
   }
 
+  const mergePowers = (
+    existingPowers: InventoryItemPower[] | undefined,
+    incomingPowers: InventoryItemPower[] | undefined
+  ): InventoryItemPower[] | undefined => {
+    if (!incomingPowers?.length) return existingPowers;
+    if (!existingPowers?.length) return incomingPowers;
+    const existingIds = new Set(existingPowers.map((power) => power.id));
+    return [...existingPowers, ...incomingPowers.filter((power) => !existingIds.has(power.id))];
+  };
+
   return inventory.map((existing, index) =>
     index === duplicateIndex
       ? {
           ...existing,
-          quantity: numberOrZero(existing.quantity) + quantity
+          quantity: numberOrZero(existing.quantity) + quantity,
+          powers: mergePowers(existing.powers, item.powers),
+          metadata: {
+            ...(existing.metadata ?? {}),
+            ...(item.metadata ?? {})
+          }
         }
       : existing
   );

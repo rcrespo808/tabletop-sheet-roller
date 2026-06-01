@@ -49,7 +49,24 @@ export const starterLootTables: LootTable[] = [
             name: "Mud-sealed Antitoxin",
             quantity: 1,
             rarity: "common",
-            notes: "A bitter vial that helps resist a poison or sickness at GM discretion."
+            notes: "A bitter vial that helps resist a poison or sickness at GM discretion.",
+            powers: [
+              {
+                id: "power-drink-antitoxin",
+                label: "Drink Antitoxin",
+                description: "Consume the vial and roll a Constitution save with a small bonus.",
+                consumesItem: true,
+                action: {
+                  id: "action-drink-antitoxin",
+                  type: "dnd-check",
+                  label: "Drink Antitoxin",
+                  ability: "con",
+                  save: true,
+                  modifier: 2,
+                  notes: "Use when resisting poison or sickness at GM discretion."
+                }
+              }
+            ]
           }
         }
       },
@@ -144,7 +161,60 @@ export const starterLootTables: LootTable[] = [
             name: "Potion of Healing",
             quantity: 1,
             rarity: "common",
-            notes: "Restores a small amount of HP when used."
+            notes: "Restores a small amount of HP when used.",
+            powers: [
+              {
+                id: "power-drink-healing-potion",
+                label: "Drink Potion",
+                description: "Roll healing and consume the potion.",
+                consumesItem: true,
+                action: {
+                  id: "action-drink-healing-potion",
+                  type: "dnd-roll",
+                  label: "Drink Potion",
+                  roll: "2d4+2",
+                  notes: "Regain the rolled hit points."
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        id: "dnd-spell-scroll-moonbeam",
+        label: "Spell Scroll: Moonbeam",
+        weight: 2,
+        reward: {
+          type: "item",
+          item: {
+            id: "item-spell-scroll-moonbeam",
+            codexEntryId: "item-spell-scroll-moonbeam",
+            sourceCodexEntryId: "item-spell-scroll-moonbeam",
+            name: "Spell Scroll: Moonbeam",
+            quantity: 1,
+            rarity: "uncommon",
+            notes: "A silvered vellum scroll sealed with pale wax.",
+            powers: [
+              {
+                id: "power-cast-moonbeam",
+                label: "Cast Moonbeam",
+                description: "Use the character sheet spell save DC. Damage can be rolled from this item.",
+                consumesItem: true,
+                action: {
+                  id: "action-cast-moonbeam",
+                  type: "note",
+                  label: "Cast Moonbeam",
+                  notes:
+                    "Creatures entering or starting in the beam make a CON save against your Spell Save DC. Roll 2d10 radiant damage.",
+                  metadata: {
+                    usesSpellSaveDc: true,
+                    saveAbility: "con",
+                    damageRoll: "2d10",
+                    spellName: "Moonbeam"
+                  }
+                }
+              }
+            ]
           }
         }
       },

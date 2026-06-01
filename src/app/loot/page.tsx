@@ -38,6 +38,7 @@ import {
   type RewardGrant
 } from "@/lib/loot/types";
 import { DEFAULT_ROOM_SLUG } from "@/lib/rollLog/constants";
+import { normalizeInventoryItem } from "@/lib/sheets/inventory";
 import type { CharacterProfile } from "@/lib/sheets/types";
 import { listCharacters, saveCharacter } from "@/lib/storage/characterRepository";
 import { saveRollLog } from "@/lib/storage/rollLogRepository";
@@ -81,7 +82,20 @@ const DEFAULT_REWARD_BY_TYPE: Record<RewardGrant["type"], RewardGrant> = {
       id: "loot-item",
       name: "Loot Item",
       quantity: 1,
-      rarity: "common"
+      rarity: "common",
+      powers: [
+        {
+          id: "power-use-loot-item",
+          label: "Use Item",
+          description: "Optional item power. Remove this array for passive items.",
+          action: {
+            id: "action-use-loot-item",
+            type: "note",
+            label: "Use Item",
+            notes: "Describe the item's activated effect."
+          }
+        }
+      ]
     }
   },
   condition: {
@@ -154,8 +168,12 @@ function parseRewardGrant(raw: string, expectedType: RewardGrant["type"]): Rewar
     return parsed;
   }
   if (parsed.type === "item") {
-    if (!parsed.item?.name) throw new Error("Item rewards need item.name.");
-    return parsed;
+    const item = normalizeInventoryItem(parsed.item);
+    if (!item?.name) throw new Error("Item rewards need item.name.");
+    if (Array.isArray(parsed.item?.powers) && parsed.item.powers.length > 0 && !item.powers?.length) {
+      throw new Error("Item powers need label and a valid SheetAction.");
+    }
+    return { ...parsed, item };
   }
   if (parsed.type === "condition") {
     if (!parsed.condition?.name) throw new Error("Condition rewards need condition.name.");
