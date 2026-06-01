@@ -9,6 +9,12 @@ on:
         default: "true"
         type: choice
         options: ["true", "false"]
+      seed_test_data:
+        description: "Reset and import deterministic test data"
+        required: true
+        default: "true"
+        type: choice
+        options: ["true", "false"]
       deploy_app:
         description: "Deploy app with Vercel CLI"
         required: true
@@ -41,7 +47,7 @@ jobs:
 
       - name: Validate migration secrets
         id: migration_secrets
-        if: github.event_name == 'push' || github.event.inputs.run_migrations == 'true'
+        if: github.event_name == 'push' || github.event.inputs.run_migrations == 'true' || github.event.inputs.seed_test_data == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -82,6 +88,30 @@ jobs:
         run: |
           supabase db push --dry-run
           supabase db push --yes
+
+      - name: Install PostgreSQL client
+        if: (github.event_name == 'push' || github.event.inputs.seed_test_data == 'true') && steps.migration_secrets.outputs.can_run == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Reset and import mock table data
+        if: (github.event_name == 'push' || github.event.inputs.seed_test_data == 'true') && steps.migration_secrets.outputs.can_run == 'true'
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            psql "$SUPABASE_DB_URL" \
+              --set=ON_ERROR_STOP=1 \
+              --file=supabase/seed-test-environment.sql
+          else
+            psql \
+              "host=db.${SUPABASE_PROJECT_ID}.supabase.co port=5432 dbname=postgres user=postgres sslmode=require" \
+              --set=ON_ERROR_STOP=1 \
+              --file=supabase/seed-test-environment.sql
+          fi
 
       - name: Validate app deployment secrets
         id: app_secrets

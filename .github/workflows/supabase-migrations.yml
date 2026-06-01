@@ -17,6 +17,14 @@ on:
         options:
           - "true"
           - "false"
+      seed_test_data:
+        description: "Reset and import deterministic test data after applying migrations"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
 
 permissions:
   contents: read
@@ -57,3 +65,26 @@ jobs:
       - name: Apply migrations
         if: github.event_name == 'push' || github.event.inputs.dry_run == 'false'
         run: supabase db push --yes
+
+      - name: Install PostgreSQL client
+        if: (github.event_name == 'push' || github.event.inputs.seed_test_data == 'true') && (github.event_name == 'push' || github.event.inputs.dry_run == 'false')
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Reset and import mock table data
+        if: (github.event_name == 'push' || github.event.inputs.seed_test_data == 'true') && (github.event_name == 'push' || github.event.inputs.dry_run == 'false')
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            psql "$SUPABASE_DB_URL" \
+              --set=ON_ERROR_STOP=1 \
+              --file=supabase/seed-test-environment.sql
+          else
+            psql \
+              "host=db.${SUPABASE_PROJECT_ID}.supabase.co port=5432 dbname=postgres user=postgres sslmode=require" \
+              --set=ON_ERROR_STOP=1 \
+              --file=supabase/seed-test-environment.sql
+          fi

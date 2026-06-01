@@ -43,6 +43,7 @@ function sourceLabel(source?: RewardSource): string {
   if (source.lootTableName && source.entryLabel) {
     return `${source.lootTableName}: ${source.entryLabel}`;
   }
+  if (source.handoutTitle) return `Handout: ${source.handoutTitle}`;
   return source.lootTableName ?? source.entryLabel ?? "Loot";
 }
 

@@ -41,6 +41,8 @@ export type LootRollResult = {
 export type RewardSource = {
   lootTableId?: string;
   lootTableName?: string;
+  handoutId?: string;
+  handoutTitle?: string;
   entryId?: string;
   entryLabel?: string;
   codexEntryName?: string;
