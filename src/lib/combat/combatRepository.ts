@@ -12,7 +12,7 @@ import {
   listSupabaseEncounters,
   saveSupabaseEncounter
 } from "@/lib/storage/supabaseCombatRepository";
-import { isSupabaseConfigured } from "@/lib/storage/supabaseClient";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/storage/supabaseClient";
 import type { StorageMode } from "@/lib/storage/types";
 import type { CombatEncounter } from "@/lib/combat/types";
 
@@ -22,8 +22,21 @@ export function getCombatStorageMode(): StorageMode {
   return lastCombatStorageMode;
 }
 
+async function hasSupabaseSession(): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  const { data, error } = await client.auth.getSession();
+  return !error && Boolean(data.session?.user);
+}
+
 export async function listEncounters(gameTableId?: string): Promise<CombatEncounter[]> {
   if (isSupabaseConfigured()) {
+    if (!(await hasSupabaseSession())) {
+      lastCombatStorageMode = "auth-required";
+      return listLocalEncounters(gameTableId);
+    }
+
     try {
       const remote = await listSupabaseEncounters(gameTableId);
       lastCombatStorageMode = "supabase";
@@ -44,6 +57,11 @@ export async function getEncounter(id: string): Promise<CombatEncounter | null> 
   if (local) return local;
 
   if (isSupabaseConfigured()) {
+    if (!(await hasSupabaseSession())) {
+      lastCombatStorageMode = "auth-required";
+      return null;
+    }
+
     try {
       const remote = await getSupabaseEncounter(id);
       if (remote) {
@@ -66,6 +84,11 @@ export async function saveEncounter(encounter: CombatEncounter): Promise<CombatE
   let saved = encounter;
 
   if (isSupabaseConfigured()) {
+    if (!(await hasSupabaseSession())) {
+      lastCombatStorageMode = "auth-required";
+      return saveLocalEncounter(saved);
+    }
+
     try {
       saved = await saveSupabaseEncounter(encounter);
       lastCombatStorageMode = "supabase";
@@ -82,6 +105,12 @@ export async function saveEncounter(encounter: CombatEncounter): Promise<CombatE
 
 export async function deleteEncounter(id: string): Promise<void> {
   if (isSupabaseConfigured()) {
+    if (!(await hasSupabaseSession())) {
+      lastCombatStorageMode = "auth-required";
+      deleteLocalEncounter(id);
+      return;
+    }
+
     try {
       await deleteSupabaseEncounter(id);
       lastCombatStorageMode = "supabase";

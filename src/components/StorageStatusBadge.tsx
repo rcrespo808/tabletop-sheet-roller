@@ -19,6 +19,8 @@ export function StorageStatusBadge({
   const tone =
     status.mode === "supabase"
       ? "border-cyan-500/40 bg-cyan-500/15 text-cyan-100"
+      : status.mode === "auth-required"
+        ? "border-blue-500/40 bg-blue-500/15 text-blue-100"
       : status.mode === "supabase-fallback"
         ? "border-amber-500/40 bg-amber-500/15 text-amber-100"
         : "border-purple-500/40 bg-purple-500/15 text-purple-100";

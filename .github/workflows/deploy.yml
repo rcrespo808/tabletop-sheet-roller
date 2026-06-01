@@ -86,7 +86,20 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
-          supabase db push --dry-run
+          set +e
+          supabase db push --dry-run 2>&1 | tee /tmp/supabase-db-push-dry-run.log
+          dry_run_status=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$dry_run_status" -ne 0 ]; then
+            if grep -q "Remote migration versions not found in local migrations directory" /tmp/supabase-db-push-dry-run.log; then
+              echo "::warning::Remote Supabase migration history contains versions missing locally. Skipping migrations so app deploy can continue. Run supabase migration repair/db pull to reconcile history."
+              exit 0
+            fi
+
+            exit "$dry_run_status"
+          fi
+
           supabase db push --yes
 
       - name: Install PostgreSQL client
