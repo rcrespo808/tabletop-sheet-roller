@@ -26,7 +26,24 @@ type CharacterRewardsPanelProps = {
   canToggleEquipment: boolean;
   onProfileChange?: (profile: CharacterProfile) => void | Promise<void>;
   onRollLogEntry?: (entry: RollLogEntry) => void | Promise<void>;
+  sections?: RewardsSection[];
+  inventoryMode?: "full" | "powers-only";
 };
+
+export type RewardsSection =
+  | "inventory"
+  | "wallet"
+  | "progression"
+  | "conditions"
+  | "history";
+
+const ALL_SECTIONS: RewardsSection[] = [
+  "inventory",
+  "wallet",
+  "progression",
+  "conditions",
+  "history"
+];
 
 const WALLET_KEYS = ["gp", "sp", "cp", "xp"] as const;
 
@@ -113,7 +130,9 @@ export function CharacterRewardsPanel({
   canManageRewards,
   canToggleEquipment,
   onProfileChange,
-  onRollLogEntry
+  onRollLogEntry,
+  sections = ALL_SECTIONS,
+  inventoryMode = "full"
 }: CharacterRewardsPanelProps) {
   const [itemName, setItemName] = useState("");
   const [itemQuantity, setItemQuantity] = useState("1");
@@ -466,15 +485,24 @@ export function CharacterRewardsPanel({
     );
   }
 
+  const showSection = (section: RewardsSection) => sections.includes(section);
+  const powersOnly = inventoryMode === "powers-only";
+  const visibleInventory = powersOnly
+    ? inventory.filter((item) => item.powers && item.powers.length > 0)
+    : inventory;
+
   return (
     <div className="space-y-6">
+      {showSection("inventory") ? (
       <GlassPanel level="secondary" className="p-5">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-foreground">Inventory</h2>
-          <span className="text-xs text-muted-foreground">{inventory.length} items</span>
+          <h2 className="text-lg font-semibold text-foreground">
+            {powersOnly ? "Item Powers" : "Inventory"}
+          </h2>
+          <span className="text-xs text-muted-foreground">{visibleInventory.length} items</span>
         </div>
 
-        {canManageRewards ? (
+        {canManageRewards && !powersOnly ? (
           <div className="mt-4 grid gap-2">
             <input
               className="h-9 rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm text-foreground outline-none focus:border-purple-500/50"
@@ -515,12 +543,12 @@ export function CharacterRewardsPanel({
         ) : null}
 
         <div className="mt-4 space-y-3">
-          {inventory.length === 0 ? (
+          {visibleInventory.length === 0 ? (
             <p className="rounded-md border border-dashed border-slate-700/30 p-4 text-center text-sm text-muted-foreground">
-              No inventory yet.
+              {powersOnly ? "No item powers available." : "No inventory yet."}
             </p>
           ) : (
-            inventory.map((item) => (
+            visibleInventory.map((item) => (
               <div
                 className="rounded-md border border-slate-700/25 bg-slate-950/30 p-3"
                 key={item.id}
@@ -671,7 +699,9 @@ export function CharacterRewardsPanel({
           )}
         </div>
       </GlassPanel>
+      ) : null}
 
+      {showSection("wallet") ? (
       <GlassPanel level="secondary" className="p-5">
         <h2 className="text-lg font-semibold text-foreground">Wallet</h2>
         <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
@@ -734,7 +764,9 @@ export function CharacterRewardsPanel({
           </div>
         ) : null}
       </GlassPanel>
+      ) : null}
 
+      {showSection("progression") ? (
       <GlassPanel level="secondary" className="p-5">
         <h2 className="text-lg font-semibold text-foreground">Progression</h2>
         <div className="mt-4 grid grid-cols-2 gap-2">
@@ -815,7 +847,9 @@ export function CharacterRewardsPanel({
           )}
         </div>
       </GlassPanel>
+      ) : null}
 
+      {showSection("conditions") ? (
       <GlassPanel level="secondary" className="p-5">
         <h2 className="text-lg font-semibold text-foreground">Conditions</h2>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -874,7 +908,9 @@ export function CharacterRewardsPanel({
           </div>
         ) : null}
       </GlassPanel>
+      ) : null}
 
+      {showSection("history") ? (
       <GlassPanel level="secondary" className="p-5">
         <h2 className="text-lg font-semibold text-foreground">Reward History</h2>
         <div className="mt-4 max-h-80 space-y-3 overflow-y-auto pr-1">
@@ -906,6 +942,7 @@ export function CharacterRewardsPanel({
           )}
         </div>
       </GlassPanel>
+      ) : null}
     </div>
   );
 }
