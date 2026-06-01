@@ -239,7 +239,9 @@ export default function LootPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const isStarterLootCampaign = campaignId === SUPABASE_STARTER_LOOT_CAMPAIGN_ID;
   const canManage = !isSupabaseConfigured() || authState.profile?.userLevel === "gm";
+  const canApplyRewards = canManage || isStarterLootCampaign;
   const selectedTable = useMemo(
     () => tables.find((table) => table.id === selectedTableId) ?? null,
     [selectedTableId, tables]
@@ -400,7 +402,7 @@ export default function LootPage() {
   }
 
   async function handleApplyReward() {
-    if (!canManage || !selectedTable || !rollResult) return;
+    if (!canApplyRewards || !selectedTable || !rollResult) return;
     setError(null);
     setMessage(null);
     if (targetCharacterIds.length === 0) {
@@ -850,7 +852,7 @@ export default function LootPage() {
                 </div>
                 <button
                   className="inline-flex h-10 items-center gap-2 rounded-md border border-amber-500/40 bg-amber-600/20 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-600/30 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!selectedTable || !canManage}
+                  disabled={!selectedTable || !canApplyRewards}
                   onClick={handleRoll}
                   type="button"
                 >
@@ -900,7 +902,7 @@ export default function LootPage() {
                         <input
                           checked={targetCharacterIds.includes(character.id)}
                           className="accent-amber-400"
-                          disabled={!canManage}
+                          disabled={!canApplyRewards}
                           onChange={(event) => {
                             setTargetCharacterIds((current) =>
                               event.target.checked
@@ -920,7 +922,7 @@ export default function LootPage() {
 
                   <button
                     className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-700/35 px-3 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-700/55 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={!canManage || !rollResult}
+                    disabled={!canApplyRewards || !rollResult}
                     onClick={handleApplyReward}
                     type="button"
                   >

@@ -29,10 +29,10 @@ export function getStorageMode(): StorageMode {
 function mergeProfiles(primary: CharacterProfile[], fallback: CharacterProfile[]): CharacterProfile[] {
   const merged = new Map<string, CharacterProfile>();
 
-  for (const profile of fallback) {
+  for (const profile of primary) {
     merged.set(profile.id, profile);
   }
-  for (const profile of primary) {
+  for (const profile of fallback) {
     merged.set(profile.id, profile);
   }
 
@@ -61,18 +61,6 @@ async function syncProfileImageAssets(profile: CharacterProfile): Promise<void> 
   }
 }
 
-async function withCurrentOwner(profile: CharacterProfile): Promise<CharacterProfile> {
-  if (!isSupabaseConfigured() || profile.ownerUserId) return profile;
-
-  const authState = await getCurrentAuthState();
-  if (!authState.user) return profile;
-
-  return {
-    ...profile,
-    ownerUserId: authState.user.id
-  };
-}
-
 export async function listCharacters(): Promise<CharacterProfile[]> {
   if (isSupabaseConfigured()) {
     try {
@@ -92,6 +80,12 @@ export async function listCharacters(): Promise<CharacterProfile[]> {
 }
 
 export async function getCharacter(id: string): Promise<CharacterProfile | null> {
+  const local = await getLocalCharacter(id);
+
+  if (local) {
+    return local;
+  }
+
   if (isSupabaseConfigured()) {
     try {
       const remote = await getSupabaseCharacter(id);
@@ -107,14 +101,22 @@ export async function getCharacter(id: string): Promise<CharacterProfile | null>
     lastStorageMode = "local";
   }
 
-  return getLocalCharacter(id);
+  return null;
 }
 
 export async function saveCharacter(profile: CharacterProfile): Promise<CharacterProfile> {
-  const normalized = await withCurrentOwner(normalizeCharacterProfile(profile));
+  const authState = isSupabaseConfigured() ? await getCurrentAuthState() : null;
+  const baseProfile = normalizeCharacterProfile(profile);
+  const normalized =
+    authState?.user && !baseProfile.ownerUserId
+      ? {
+          ...baseProfile,
+          ownerUserId: authState.user.id
+        }
+      : baseProfile;
   let saved = normalized;
 
-  if (isSupabaseConfigured()) {
+  if (isSupabaseConfigured() && authState?.user) {
     try {
       saved = await saveSupabaseCharacter(normalized);
       await syncProfileImageAssets(saved);
