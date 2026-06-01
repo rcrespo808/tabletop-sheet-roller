@@ -103,13 +103,13 @@ jobs:
           supabase db push --yes
 
       - name: Install PostgreSQL client
-        if: (github.event_name == 'push' || github.event.inputs.seed_test_data == 'true') && steps.migration_secrets.outputs.can_run == 'true'
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.seed_test_data == 'true' && steps.migration_secrets.outputs.can_run == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install --yes postgresql-client
 
       - name: Reset and import mock table data
-        if: (github.event_name == 'push' || github.event.inputs.seed_test_data == 'true') && steps.migration_secrets.outputs.can_run == 'true'
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.seed_test_data == 'true' && steps.migration_secrets.outputs.can_run == 'true'
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
