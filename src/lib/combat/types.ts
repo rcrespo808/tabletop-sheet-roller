@@ -1,4 +1,10 @@
-import type { GameSystem, SheetAction } from "@/lib/sheets/types";
+import type {
+  AbilityKey,
+  GameSystem,
+  NwodAttributeKey,
+  NwodSkillKey,
+  SheetAction
+} from "@/lib/sheets/types";
 
 // Combat encounter JSON is pre-stable. Saved encounters may be discarded between
 // combat refactors; do not preserve old encounter shapes unless explicitly needed.
@@ -7,6 +13,54 @@ export type CombatStatus = "active" | "down" | "dead" | "fled" | "hidden";
 export type CombatTeam = "players" | "enemies" | "allies" | "neutral";
 
 export type CombatantKind = "character" | "npc";
+
+export type CombatAction =
+  | {
+      id: string;
+      label: string;
+      system: "dnd5e";
+      kind: "attack";
+      attackRoll: string;
+      damageRoll: string;
+      damageType?: string;
+      notes?: string;
+      sourceActionId?: string;
+    }
+  | {
+      id: string;
+      label: string;
+      system: "dnd5e";
+      kind: "save";
+      saveDc?: number;
+      saveAbility?: AbilityKey;
+      damageRoll?: string;
+      halfOnSuccess?: boolean;
+      notes?: string;
+      sourceActionId?: string;
+    }
+  | {
+      id: string;
+      label: string;
+      system: "nwod";
+      kind: "attack";
+      attribute: NwodAttributeKey;
+      skill?: NwodSkillKey;
+      modifier?: number;
+      damage?: number;
+      again?: 8 | 9 | 10 | null;
+      rote?: boolean;
+      notes?: string;
+      sourceActionId?: string;
+    }
+  | {
+      id: string;
+      label: string;
+      system: GameSystem;
+      kind: "utility";
+      action: SheetAction;
+      notes?: string;
+      sourceActionId?: string;
+    };
 
 export type Combatant = {
   id: string;
@@ -27,7 +81,8 @@ export type Combatant = {
   status: CombatStatus;
   targetIds: string[];
   notes?: string;
-  actions: SheetAction[];
+  combatActions: CombatAction[];
+  actions?: SheetAction[];
   metadata?: Record<string, unknown>;
 };
 

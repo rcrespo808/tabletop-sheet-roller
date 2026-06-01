@@ -1,4 +1,10 @@
-import type { Dnd5eAttributes, GameSystem, NwodAttributes, NwodSkills, SheetAction } from "@/lib/sheets/types";
+import type {
+  Dnd5eAttributes,
+  GameSystem,
+  NwodAttributes,
+  NwodSkills
+} from "@/lib/sheets/types";
+import type { CombatAction } from "@/lib/combat/types";
 
 export type NpcTemplate = {
   id: string;
@@ -13,7 +19,7 @@ export type NpcTemplate = {
   initiative?: number;
   stats?: Dnd5eAttributes | NwodAttributes;
   skills?: NwodSkills;
-  actions: SheetAction[];
+  actions: CombatAction[];
 };
 
 export const NPC_TEMPLATES: NpcTemplate[] = [
@@ -36,29 +42,23 @@ export const NPC_TEMPLATES: NpcTemplate[] = [
     actions: [
       {
         id: "kobold-short-sword",
-        type: "dnd-roll",
+        system: "dnd5e",
+        kind: "attack",
         label: "Short Sword",
-        roll: "1d20+4",
+        attackRoll: "1d20+4",
+        damageRoll: "1d6+2",
+        damageType: "piercing",
         notes: "Hit: 1d6+2 piercing."
       },
       {
         id: "kobold-sword-damage",
-        type: "dnd-roll",
-        label: "Short Sword Damage",
-        roll: "1d6+2"
-      },
-      {
-        id: "kobold-crossbow",
-        type: "dnd-roll",
+        system: "dnd5e",
+        kind: "attack",
         label: "Light Crossbow",
-        roll: "1d20+4",
+        attackRoll: "1d20+4",
+        damageRoll: "1d8+2",
+        damageType: "piercing",
         notes: "Hit: 1d8+2 piercing."
-      },
-      {
-        id: "kobold-crossbow-damage",
-        type: "dnd-roll",
-        label: "Crossbow Damage",
-        roll: "1d8+2"
       }
     ]
   },
@@ -91,22 +91,26 @@ export const NPC_TEMPLATES: NpcTemplate[] = [
     },
     actions: [
       {
-        id: "tunnel-skulk-knife",
-        type: "nwod-check",
+        id: "tunnel-skulk-rust-knife",
+        system: "nwod",
+        kind: "attack",
         label: "Rust Knife",
         attribute: "dexterity",
         skill: "brawl",
         modifier: 1,
+        damage: 1,
         again: 10,
         notes: "Close combat knife or crude sword equivalent."
       },
       {
-        id: "tunnel-skulk-crossbow",
-        type: "nwod-check",
+        id: "tunnel-skulk-hand-crossbow",
+        system: "nwod",
+        kind: "attack",
         label: "Hand Crossbow",
         attribute: "dexterity",
         skill: "firearms",
         modifier: 1,
+        damage: 2,
         again: 10,
         notes: "Small crossbow or improvised ranged weapon."
       }
