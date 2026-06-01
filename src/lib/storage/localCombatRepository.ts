@@ -1,13 +1,13 @@
 import type { CombatEncounter } from "@/lib/combat/types";
 
-const STORAGE_KEY = "tsr.combatEncounters.v1";
+export const COMBAT_ENCOUNTERS_STORAGE_KEY = "tsr.combatEncounters.v2";
 const DEFAULT_TABLE_KEY = "default";
 
 function readStore(): Record<string, CombatEncounter[]> {
   if (typeof window === "undefined") return {};
 
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(COMBAT_ENCOUNTERS_STORAGE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Record<string, CombatEncounter[]>;
     return parsed && typeof parsed === "object" ? parsed : {};
@@ -18,7 +18,7 @@ function readStore(): Record<string, CombatEncounter[]> {
 
 function writeStore(store: Record<string, CombatEncounter[]>): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+  window.localStorage.setItem(COMBAT_ENCOUNTERS_STORAGE_KEY, JSON.stringify(store));
 }
 
 function tableKey(gameTableId?: string): string {
@@ -77,4 +77,15 @@ export function replaceLocalEncounters(
   store[tableKey(gameTableId)] = sortByUpdated(encounters);
   writeStore(store);
   return store[tableKey(gameTableId)];
+}
+
+export function clearLocalEncounters(gameTableId?: string): void {
+  const store = readStore();
+  if (gameTableId) {
+    delete store[tableKey(gameTableId)];
+    writeStore(store);
+    return;
+  }
+
+  writeStore({});
 }

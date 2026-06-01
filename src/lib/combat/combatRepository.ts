@@ -1,4 +1,5 @@
 import {
+  clearLocalEncounters,
   deleteLocalEncounter,
   getLocalEncounter,
   listLocalEncounters,
@@ -93,4 +94,8 @@ export async function deleteEncounter(id: string): Promise<void> {
   }
 
   deleteLocalEncounter(id);
+}
+
+export function clearSavedLocalEncounters(gameTableId?: string): void {
+  clearLocalEncounters(gameTableId);
 }

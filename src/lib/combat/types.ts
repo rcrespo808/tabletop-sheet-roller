@@ -1,5 +1,7 @@
 import type { GameSystem, SheetAction } from "@/lib/sheets/types";
 
+// Combat encounter JSON is pre-stable. Saved encounters may be discarded between
+// combat refactors; do not preserve old encounter shapes unless explicitly needed.
 export type CombatStatus = "active" | "down" | "dead" | "fled" | "hidden";
 
 export type CombatTeam = "players" | "enemies" | "allies" | "neutral";

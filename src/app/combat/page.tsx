@@ -31,6 +31,7 @@ import {
   updateCombatant
 } from "@/lib/combat/combatEngine";
 import {
+  clearSavedLocalEncounters,
   deleteEncounter,
   getCombatStorageMode,
   listEncounters,
@@ -105,6 +106,7 @@ export default function CombatPage() {
   const [characters, setCharacters] = useState<CharacterProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [addPanelOpen, setAddPanelOpen] = useState(false);
+  const [dangerPanelOpen, setDangerPanelOpen] = useState(false);
   const [rollLogOpen, setRollLogOpen] = useState(false);
   const [entries, setEntries] = useState<RollLogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
@@ -177,6 +179,15 @@ export default function CombatPage() {
     await deleteEncounter(activeEncounter.id);
     setActiveEncounter(null);
     await refresh();
+  }
+
+  function handleClearSavedEncounters() {
+    if (!window.confirm("Clear browser-local saved encounters?")) return;
+    clearSavedLocalEncounters();
+    setActiveEncounter(null);
+    setEncounters([]);
+    setTargetingFromId(null);
+    setExpandedActions({});
   }
 
   const npcTemplates = useMemo(() => listNpcTemplates(selectedSystem), [selectedSystem]);
@@ -349,6 +360,34 @@ export default function CombatPage() {
               >
                 Delete
               </button>
+            ) : null}
+          </div>
+          <div className="mt-4 border-t border-slate-700/25 pt-3">
+            <button
+              className="flex items-center gap-2 text-xs font-semibold uppercase text-red-200"
+              onClick={() => setDangerPanelOpen((current) => !current)}
+              type="button"
+            >
+              {dangerPanelOpen ? (
+                <ChevronDown className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              )}
+              Danger
+            </button>
+            {dangerPanelOpen ? (
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                  className="h-9 rounded-md border border-red-500/40 bg-red-950/40 px-3 text-xs font-semibold text-red-100"
+                  onClick={handleClearSavedEncounters}
+                  type="button"
+                >
+                  Clear Saved Encounters
+                </button>
+                <span className="text-xs text-muted-foreground">
+                  Clears browser-local combat encounters only.
+                </span>
+              </div>
             ) : null}
           </div>
         </GlassPanel>
