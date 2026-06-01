@@ -49,3 +49,4 @@ export type RewardSource = {
 };
 
 export const LOCAL_DEMO_CAMPAIGN_ID = "local-demo-campaign";
+export const SUPABASE_STARTER_LOOT_CAMPAIGN_ID = "00000000-0000-4000-8000-000000000013";

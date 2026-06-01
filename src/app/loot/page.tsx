@@ -30,6 +30,7 @@ import {
 import { formatLootRollDetails, rollLootTable } from "@/lib/loot/rollLootTable";
 import {
   LOCAL_DEMO_CAMPAIGN_ID,
+  SUPABASE_STARTER_LOOT_CAMPAIGN_ID,
   type LootRollResult,
   type LootTable,
   type LootTableEntry,
@@ -66,6 +67,10 @@ const EMPTY_TABLE_FORM: TableFormState = {
   description: "",
   visibility: "gm_only"
 };
+
+const DEFAULT_LOOT_CAMPAIGN_ID = isSupabaseConfigured()
+  ? SUPABASE_STARTER_LOOT_CAMPAIGN_ID
+  : LOCAL_DEMO_CAMPAIGN_ID;
 
 const DEFAULT_REWARD_BY_TYPE: Record<RewardGrant["type"], RewardGrant> = {
   currency: { type: "currency", walletDelta: { gp: 1 } },
@@ -218,7 +223,7 @@ export default function LootPage() {
     user: null,
     profile: null
   });
-  const [campaignId, setCampaignId] = useState(LOCAL_DEMO_CAMPAIGN_ID);
+  const [campaignId, setCampaignId] = useState(DEFAULT_LOOT_CAMPAIGN_ID);
   const [tables, setTables] = useState<LootTable[]>([]);
   const [characters, setCharacters] = useState<CharacterProfile[]>([]);
   const [codexEntries, setCodexEntries] = useState<CodexEntry[]>([]);
@@ -511,9 +516,9 @@ export default function LootPage() {
               className="h-10 rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm text-foreground outline-none focus:border-amber-500/50"
               onChange={(event) => {
                 setLoading(true);
-                setCampaignId(event.target.value.trim() || LOCAL_DEMO_CAMPAIGN_ID);
+                setCampaignId(event.target.value.trim() || DEFAULT_LOOT_CAMPAIGN_ID);
               }}
-              placeholder={LOCAL_DEMO_CAMPAIGN_ID}
+              placeholder={DEFAULT_LOOT_CAMPAIGN_ID}
               value={campaignId}
             />
           </label>
