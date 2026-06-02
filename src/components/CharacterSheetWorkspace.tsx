@@ -21,6 +21,7 @@ import {
 } from "@/lib/storage/rollLogRepository";
 import type { StorageMode } from "@/lib/storage/types";
 import { CharacterImagesPanel } from "./CharacterImagesPanel";
+import { CharacterCombatPanel } from "./combat/CharacterCombatPanel";
 import { CharacterNotesPanel } from "./CharacterNotesPanel";
 import { CharacterOverviewPanel } from "./CharacterOverviewPanel";
 import { CharacterRewardsPanel } from "./CharacterRewardsPanel";
@@ -160,6 +161,7 @@ export function CharacterSheetWorkspace({
         <CharacterWorkspaceTabs active={activeTab} onChange={setActiveTab} />
 
         <CharacterWorkspaceTabPanel active={activeTab} tab="overview">
+          <CharacterCombatPanel profile={profile} selectedSystem={selectedSystem} />
           <CharacterOverviewPanel
             canManage={canManageRewards}
             onProfileChange={onProfileChange}

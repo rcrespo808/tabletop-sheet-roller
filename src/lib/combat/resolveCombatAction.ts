@@ -123,6 +123,10 @@ export function resolveCombatAction({
     throw new Error("Utility actions do not auto-resolve in combat.");
   }
 
+  if (action.kind !== "attack") {
+    throw new Error("This action is roll-only or unsupported for auto-resolution.");
+  }
+
   let nextEncounter = encounter;
   const targetBeforeHp = target.currentHp ?? target.maxHp ?? 0;
 
@@ -213,6 +217,10 @@ export function resolveCombatAction({
       }),
       details
     };
+  }
+
+  if (action.system !== "nwod" || action.kind !== "attack") {
+    throw new Error("This action is roll-only or unsupported for auto-resolution.");
   }
 
   const nwodAction = action as Extract<CombatAction, { system: "nwod"; kind: "attack" }>;

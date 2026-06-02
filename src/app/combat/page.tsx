@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   ChevronDown,
   ChevronRight,
-  Dices,
   Plus,
   Skull,
   Sparkles,
@@ -14,13 +14,17 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AuthPanel } from "@/components/AuthPanel";
+import { CombatActionPanel } from "@/components/combat/CombatActionPanel";
+import { CombatModeTabs, type CombatMode } from "@/components/combat/CombatModeTabs";
+import { GmCombatScreen } from "@/components/combat/GmCombatScreen";
+import { PlayerCombatScreen } from "@/components/combat/PlayerCombatScreen";
+import { PreCombatSetupPanel } from "@/components/combat/PreCombatSetupPanel";
 import { GlassPanel } from "@/components/GlassPanel";
 import { RollLog } from "@/components/RollLog";
 import { StorageStatusBadge } from "@/components/StorageStatusBadge";
 import {
   applyDamage,
   applyHealing,
-  canAct,
   clearPendingAction,
   createCombatantFromCharacter,
   createCombatantFromNpcTemplate,
@@ -47,6 +51,7 @@ import { listNpcTemplates } from "@/lib/combat/npcTemplates";
 import { resolveCombatAction } from "@/lib/combat/resolveCombatAction";
 import type {
   Combatant,
+  CombatAction,
   CombatEncounter,
   CombatEncounterSystem,
   CombatLogEntry,
@@ -54,8 +59,10 @@ import type {
   CombatTeam
 } from "@/lib/combat/types";
 import { createRollLogEntry } from "@/lib/dice/log";
+import { executeSheetAction } from "@/lib/sheets/rollAction";
 import type { RollLogEntry } from "@/lib/sheets/types";
 import type { AuthState } from "@/lib/auth/supabaseAuth";
+import { getSystemSheet } from "@/data/characters";
 import { listCharacters } from "@/lib/storage/characterRepository";
 import {
   clearRollLogs,
@@ -122,6 +129,18 @@ function combatHistoryEntryToRollLogEntry(
   });
 }
 
+function CombatModeContent({
+  children,
+  mode
+}: {
+  children: ReactNode;
+  mode: CombatMode;
+}) {
+  if (mode === "gm") return <GmCombatScreen>{children}</GmCombatScreen>;
+  if (mode === "setup") return <PreCombatSetupPanel>{children}</PreCombatSetupPanel>;
+  return <>{children}</>;
+}
+
 export default function CombatPage() {
   const [encounters, setEncounters] = useState<CombatEncounter[]>([]);
   const [activeEncounter, setActiveEncounter] = useState<CombatEncounter | null>(null);
@@ -133,6 +152,7 @@ export default function CombatPage() {
   const [entries, setEntries] = useState<RollLogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [authState, setAuthState] = useState<AuthState | null>(null);
+  const [combatMode, setCombatMode] = useState<CombatMode>("setup");
   const [selectedTargetId, setSelectedTargetId] = useState<string>("");
   const [showAllTargets, setShowAllTargets] = useState(false);
   const [recentResult, setRecentResult] = useState<{
@@ -169,6 +189,9 @@ export default function CombatPage() {
       listCharacters()
     ]);
     setEncounters(loadedEncounters);
+    setActiveEncounter((current) =>
+      current ? loadedEncounters.find((encounter) => encounter.id === current.id) ?? current : current
+    );
     setCharacters(loadedCharacters);
     setLoading(false);
   };
@@ -353,6 +376,110 @@ export default function CombatPage() {
     await persistEncounter(setActiveTurn(activeEncounter, combatantId), { logNewHistoryFrom: activeEncounter });
   }
 
+  async function handleDeclareCurrentAction(actionId: string) {
+    if (!activeEncounter || !currentCombatant) return;
+    const declared = declarePendingAction(activeEncounter, {
+      combatantId: currentCombatant.id,
+      declaredByUserId: authState?.user?.id,
+      actionId,
+      targetId: effectiveSelectedTargetId || undefined
+    });
+    await persistEncounter(declared, { logNewHistoryFrom: activeEncounter });
+  }
+
+  async function handleClearPendingAction() {
+    if (!activeEncounter) return;
+    const cleared = clearPendingAction(activeEncounter);
+    await persistEncounter(cleared, { logNewHistoryFrom: activeEncounter });
+  }
+
+  async function handleAdvanceTurn() {
+    if (!activeEncounter || !gmUser) return;
+    await persistEncounter(nextTurn(activeEncounter), { logNewHistoryFrom: activeEncounter });
+  }
+
+  async function handleResolveCurrentAction(actionId: string) {
+    if (!activeEncounter || !currentCombatant) return;
+    const selected = effectiveSelectedTargetId;
+    if (!selected) return;
+
+    try {
+      const result = resolveCombatAction({
+        encounter: activeEncounter,
+        attackerId: currentCombatant.id,
+        targetId: selected,
+        actionId
+      });
+      const resolvedEncounter = {
+        ...result.encounter,
+        pendingAction: null
+      };
+      setRecentResult({
+        summary: result.summary,
+        targetId: selected,
+        targetBeforeHp: Number(result.details.targetBeforeHp ?? 0),
+        targetAfterHp: Number(result.details.targetAfterHp ?? 0)
+      });
+      await persistEncounter(resolvedEncounter);
+      await addLogEntry(result.logEntry);
+    } catch (error) {
+      setRecentResult({
+        summary: error instanceof Error ? error.message : "This action cannot be resolved automatically.",
+        targetId: selected
+      });
+    }
+  }
+
+  async function handleRollUtilityAction(action: CombatAction) {
+    if (!activeEncounter || !currentCombatant || action.kind !== "utility") return;
+    const character = currentCombatant.sourceId
+      ? characters.find((entry) => entry.id === currentCombatant.sourceId)
+      : null;
+    if (!character) {
+      setRecentResult({
+        summary: "Roll-only utility actions need a linked character sheet.",
+        targetId: effectiveSelectedTargetId
+      });
+      return;
+    }
+    const sheet = getSystemSheet(character, activeEncounter.system);
+    if (!sheet) return;
+
+    const logEntry = executeSheetAction(
+      sheet,
+      action.action,
+      currentCombatant.instanceName,
+      activeEncounter.system
+    );
+    const withHistory = appendCombatHistory(
+      activeEncounter,
+      makeCombatLogEntry(activeEncounter, {
+        actorId: currentCombatant.id,
+        actorName: currentCombatant.instanceName,
+        actionLabel: action.label,
+        summary: `${currentCombatant.instanceName} rolled ${action.label}. ${logEntry.resultText}`,
+        details: {
+          resultType: "utility_roll",
+          system: activeEncounter.system,
+          actionId: action.id,
+          actionLabel: action.label,
+          rollLogEntryId: logEntry.id
+        }
+      })
+    );
+    setRecentResult({
+      summary: `${action.label}\n${logEntry.resultText}`,
+      targetId: effectiveSelectedTargetId
+    });
+    await persistEncounter(withHistory, { logNewHistoryFrom: activeEncounter });
+    await addLogEntry({
+      ...logEntry,
+      kind: logEntry.kind ?? "roll",
+      characterName: currentCombatant.instanceName,
+      actionLabel: action.label
+    });
+  }
+
   const currentCombatant =
     activeEncounter && activeEncounter.combatants.length > 0
       ? activeEncounter.combatants[activeEncounter.turnIndex]
@@ -370,6 +497,12 @@ export default function CombatPage() {
       : [];
   const gmUser = isGm(authState);
   const activeOwnedByUser = isPlayerControlledByCurrentUser(currentCombatant, authState);
+  const playerOwnedCombatants =
+    activeEncounter?.combatants.filter((combatant) =>
+      authState?.user?.id
+        ? combatant.controlledByUserId === authState.user.id
+        : combatant.team === "players"
+    ) ?? [];
 
   if (loading) {
     return (
@@ -424,6 +557,9 @@ export default function CombatPage() {
           }}
         />
 
+        <CombatModeTabs active={combatMode} onChange={setCombatMode} />
+
+        {combatMode === "setup" ? (
         <GlassPanel level="secondary" className="p-5">
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-[12rem] flex-1">
@@ -506,9 +642,10 @@ export default function CombatPage() {
             ) : null}
           </div>
         </GlassPanel>
+        ) : null}
 
-        {activeEncounter ? (
-          <>
+        {activeEncounter && combatMode !== "player" ? (
+          <CombatModeContent mode={combatMode}>
             <EncounterHeader
               canManage={gmUser}
               currentName={currentCombatant?.instanceName}
@@ -528,53 +665,18 @@ export default function CombatPage() {
               }
             />
 
+            {combatMode === "gm" ? (
             <ActiveTurnPanel
               activeCombatant={currentCombatant}
               canDeclare={activeOwnedByUser && !gmUser}
               canResolve={gmUser}
               pendingAction={activeEncounter.pendingAction ?? null}
-              onDeclareAction={async (actionId) => {
-                if (!currentCombatant) return;
-                const declared = declarePendingAction(activeEncounter, {
-                  combatantId: currentCombatant.id,
-                  declaredByUserId: authState?.user?.id,
-                  actionId,
-                  targetId: effectiveSelectedTargetId || undefined
-                });
-                await persistEncounter(declared, { logNewHistoryFrom: activeEncounter });
-              }}
-              onClearPendingAction={async () => {
-                const cleared = clearPendingAction(activeEncounter);
-                await persistEncounter(cleared, { logNewHistoryFrom: activeEncounter });
-              }}
-              onEndTurn={async () =>
-                persistEncounter(nextTurn(activeEncounter), { logNewHistoryFrom: activeEncounter })
-              }
-              onNextTurn={async () =>
-                persistEncounter(nextTurn(activeEncounter), { logNewHistoryFrom: activeEncounter })
-              }
-              onResolveAction={async (actionId) => {
-                const selected = effectiveSelectedTargetId;
-                if (!selected) return;
-                const result = resolveCombatAction({
-                  encounter: activeEncounter,
-                  attackerId: currentCombatant?.id ?? "",
-                  targetId: selected,
-                  actionId
-                });
-                const resolvedEncounter = {
-                  ...result.encounter,
-                  pendingAction: null
-                };
-                setRecentResult({
-                  summary: result.summary,
-                  targetId: selected,
-                  targetBeforeHp: Number(result.details.targetBeforeHp ?? 0),
-                  targetAfterHp: Number(result.details.targetAfterHp ?? 0)
-                });
-                await persistEncounter(resolvedEncounter);
-                await addLogEntry(result.logEntry);
-              }}
+              onDeclareAction={handleDeclareCurrentAction}
+              onClearPendingAction={handleClearPendingAction}
+              onEndTurn={handleAdvanceTurn}
+              onNextTurn={handleAdvanceTurn}
+              onResolveAction={handleResolveCurrentAction}
+              onRollUtilityAction={handleRollUtilityAction}
               onSelectedTargetIdChange={setSelectedTargetId}
               selectedTarget={selectedTarget}
               selectedTargetId={effectiveSelectedTargetId}
@@ -582,8 +684,9 @@ export default function CombatPage() {
               setShowAllTargets={setShowAllTargets}
               validTargets={validTargets}
             />
+            ) : null}
 
-            {recentResult ? (
+            {combatMode === "gm" && recentResult ? (
               <GlassPanel level="secondary" className="p-5">
                 <p className="text-sm font-semibold text-foreground">Last Resolution</p>
                 <pre className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
@@ -592,6 +695,7 @@ export default function CombatPage() {
               </GlassPanel>
             ) : null}
 
+            {combatMode === "setup" ? (
             <GlassPanel level="secondary" className="p-5">
               <button
                 className="flex w-full items-center justify-between gap-3 text-left"
@@ -686,9 +790,10 @@ export default function CombatPage() {
                 </div>
               ) : null}
             </GlassPanel>
+            ) : null}
 
             <CombatRoster
-              canManage={gmUser}
+              canManage={gmUser && combatMode === "gm"}
               encounter={activeEncounter}
               onDamage={handleManualDamage}
               onHeal={handleManualHealing}
@@ -697,15 +802,38 @@ export default function CombatPage() {
               onTarget={(id) => setSelectedTargetId(id)}
             />
 
-            <CombatHistoryPanel entries={activeEncounter.actionHistory ?? []} />
-          </>
-        ) : (
+            {combatMode === "gm" ? (
+              <CombatHistoryPanel entries={activeEncounter.actionHistory ?? []} />
+            ) : null}
+          </CombatModeContent>
+        ) : combatMode !== "player" ? (
           <GlassPanel level="tertiary" className="p-8 text-center">
             <p className="text-sm text-muted-foreground">
               Create or select an encounter to begin tracking combat.
             </p>
           </GlassPanel>
-        )}
+        ) : null}
+
+        {combatMode === "player" ? (
+          activeEncounter ? (
+            <PlayerCombatScreen
+              activeCombatant={currentCombatant}
+              canDeclare={activeOwnedByUser && !gmUser}
+              encounter={activeEncounter}
+              onDeclareAction={handleDeclareCurrentAction}
+              onRefresh={refresh}
+              onSelectedTargetIdChange={setSelectedTargetId}
+              ownedCombatants={playerOwnedCombatants}
+              selectedTarget={selectedTarget}
+              selectedTargetId={effectiveSelectedTargetId}
+              validTargets={validTargets}
+            />
+          ) : (
+            <GlassPanel level="tertiary" className="p-8 text-center">
+              <p className="text-sm text-muted-foreground">Select an encounter in Setup.</p>
+            </GlassPanel>
+          )
+        ) : null}
       </div>
 
       {rollLogOpen ? (
@@ -976,6 +1104,7 @@ function ActiveTurnPanel({
   onResolveAction,
   onDeclareAction,
   onClearPendingAction,
+  onRollUtilityAction,
   onEndTurn,
   onNextTurn
 }: {
@@ -992,11 +1121,11 @@ function ActiveTurnPanel({
   onResolveAction: (actionId: string) => void | Promise<void>;
   onDeclareAction: (actionId: string) => void | Promise<void>;
   onClearPendingAction: () => void | Promise<void>;
+  onRollUtilityAction: (action: CombatAction) => void | Promise<void>;
   onEndTurn: () => void | Promise<void>;
   onNextTurn: () => void | Promise<void>;
 }) {
   const actions = activeCombatant?.combatActions ?? [];
-  const attackActions = actions.filter((action) => action.kind !== "utility");
   const pendingActionLabel = pendingAction?.actionId
     ? actions.find((action) => action.id === pendingAction.actionId)?.label
     : undefined;
@@ -1089,42 +1218,15 @@ function ActiveTurnPanel({
 
         <div className="rounded-md border border-slate-700/25 bg-slate-950/30 p-4">
           <p className="text-sm font-semibold text-foreground">Actions</p>
-          {!activeCombatant || !canAct(activeCombatant) ? (
-            <p className="mt-3 text-sm text-muted-foreground">
-              This combatant cannot act right now.
-            </p>
-          ) : null}
-          {!selectedTargetId ? (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Select a target to resolve attacks.
-            </p>
-          ) : null}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {attackActions.map((action) => (
-              <div className="flex flex-wrap gap-2" key={action.id}>
-                <button
-                  className="inline-flex h-10 items-center gap-2 rounded-md border border-purple-500/35 bg-purple-600/20 px-3 text-sm font-semibold text-purple-100 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={!canResolve || !activeCombatant || !canAct(activeCombatant) || !selectedTargetId}
-                  onClick={() => void onResolveAction(action.id)}
-                  type="button"
-                >
-                  <Dices className="h-4 w-4" />
-                  Resolve {action.label}
-                </button>
-                {canDeclare ? (
-                  <button
-                    className="inline-flex h-10 items-center gap-2 rounded-md border border-cyan-500/35 bg-cyan-700/20 px-3 text-sm font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={!activeCombatant || !canAct(activeCombatant) || !selectedTargetId}
-                    onClick={() => void onDeclareAction(action.id)}
-                    type="button"
-                  >
-                    <Target className="h-4 w-4" />
-                    Declare {action.label}
-                  </button>
-                ) : null}
-              </div>
-            ))}
-          </div>
+          <CombatActionPanel
+            activeCombatant={activeCombatant}
+            canDeclare={canDeclare}
+            canResolve={canResolve}
+            onDeclareAction={onDeclareAction}
+            onResolveAction={onResolveAction}
+            onRollUtilityAction={onRollUtilityAction}
+            selectedTargetId={selectedTargetId}
+          />
           {pendingAction ? (
             <div className="mt-4 rounded-md border border-cyan-500/30 bg-cyan-950/30 p-3 text-sm text-cyan-100">
               <div className="flex flex-wrap items-start justify-between gap-2">

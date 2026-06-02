@@ -58,6 +58,7 @@ export type CombatAction =
       damageType?: string;
       notes?: string;
       sourceActionId?: string;
+      metadata?: Record<string, unknown>;
     }
   | {
       id: string;
@@ -70,6 +71,7 @@ export type CombatAction =
       halfOnSuccess?: boolean;
       notes?: string;
       sourceActionId?: string;
+      metadata?: Record<string, unknown>;
     }
   | {
       id: string;
@@ -84,6 +86,7 @@ export type CombatAction =
       rote?: boolean;
       notes?: string;
       sourceActionId?: string;
+      metadata?: Record<string, unknown>;
     }
   | {
       id: string;
@@ -93,6 +96,7 @@ export type CombatAction =
       action: SheetAction;
       notes?: string;
       sourceActionId?: string;
+      metadata?: Record<string, unknown>;
     };
 
 export type Combatant = {

@@ -1,17 +1,14 @@
 import { rollDndExpression } from "@/lib/dice/dnd";
-import { rollNwodPool } from "@/lib/dice/nwod";
 import { getSystemSheet } from "@/data/characters";
 import type {
-  AbilityKey,
   CharacterProfile,
   Dnd5eStats,
-  NwodStats,
-  SheetAction
+  NwodStats
 } from "@/lib/sheets/types";
 import { isDnd5eSheet, isNwodSheet } from "@/lib/sheets/types";
+import { getCombatActionsFromCharacter } from "@/lib/combat/characterCombatActions";
 import type { NpcTemplate } from "@/lib/combat/npcTemplates";
 import type {
-  CombatAction,
   Combatant,
   CombatEncounter,
   CombatEncounterSystem,
@@ -25,81 +22,6 @@ function newCombatantId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function getActionMetadata(action: SheetAction): Record<string, unknown> {
-  return action.metadata ?? {};
-}
-
-function toCombatAction(action: SheetAction): CombatAction | null {
-  const metadata = getActionMetadata(action);
-
-  if (action.type === "dnd-roll" && typeof metadata.damageRoll === "string" && metadata.damageRoll.trim()) {
-    return {
-      id: action.id,
-      label: action.label,
-      system: "dnd5e",
-      kind: "attack",
-      attackRoll: typeof metadata.attackRoll === "string" ? metadata.attackRoll : action.roll,
-      damageRoll: metadata.damageRoll,
-      damageType: typeof metadata.damageType === "string" ? metadata.damageType : undefined,
-      notes: action.notes,
-      sourceActionId: action.id
-    };
-  }
-
-  if (action.type === "dnd-check" && typeof metadata.damageRoll === "string" && metadata.damageRoll.trim()) {
-    return {
-      id: action.id,
-      label: action.label,
-      system: "dnd5e",
-      kind: "save",
-      saveDc: typeof metadata.saveDc === "number" ? metadata.saveDc : undefined,
-      saveAbility: (typeof metadata.saveAbility === "string"
-        ? (metadata.saveAbility as AbilityKey)
-        : undefined),
-      damageRoll: metadata.damageRoll,
-      halfOnSuccess: Boolean(metadata.halfOnSuccess),
-      notes: action.notes,
-      sourceActionId: action.id
-    };
-  }
-
-  if (action.type === "nwod-check" && typeof metadata.combatKind === "string" && metadata.combatKind === "attack") {
-    return {
-      id: action.id,
-      label: action.label,
-      system: "nwod",
-      kind: "attack",
-      attribute: action.attribute,
-      skill: action.skill,
-      modifier: action.modifier ?? 0,
-      damage: typeof metadata.damage === "number" ? metadata.damage : 0,
-      again: action.again,
-      rote: action.rote,
-      notes: action.notes,
-      sourceActionId: action.id
-    };
-  }
-
-  if (action.type === "dnd-roll" || action.type === "dnd-check" || action.type === "nwod-check" || action.type === "nwod-pool" || action.type === "note") {
-    return {
-      id: action.id,
-      label: action.label,
-      system:
-        action.type === "nwod-pool" ? "nwod" : "dnd5e",
-      kind: "utility",
-      action,
-      notes: action.notes,
-      sourceActionId: action.id
-    };
-  }
-
-  return null;
-}
-
-export function mapSheetActionsToCombatActions(actions: SheetAction[]): CombatAction[] {
-  return actions.map(toCombatAction).filter((action): action is CombatAction => Boolean(action));
 }
 
 function rollNwodInitiative(initiativeStat: number): { total: number; expression: string } {
@@ -123,7 +45,7 @@ export function createCombatantFromCharacter(
     initiative: 0,
     status: "active",
     targetIds: [],
-    combatActions: mapSheetActionsToCombatActions(sheet?.actions ?? []),
+    combatActions: getCombatActionsFromCharacter(character, system),
     actions: sheet?.actions ?? [],
     controlledByUserId: character.ownerUserId ?? null,
     isNpc: false,
