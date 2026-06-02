@@ -68,25 +68,29 @@ export const characterProfiles: CharacterProfile[] = [
           },
           {
             id: "dnd-resonance-check",
-            type: "dnd-roll",
+            type: "dnd-check",
             label: "Resonance Check",
-            roll: "1d20+10",
-            source: "custom"
+            ability: "int",
+            skill: "arcana",
+            source: "custom",
+            metadata: { combatCategory: "skill" }
           },
           {
             id: "dnd-int-save",
             type: "dnd-roll",
             label: "Intelligence Save",
             roll: "1d20+9",
-            source: "custom"
+            source: "custom",
+            metadata: { combatCategory: "skill" }
           },
           {
             id: "dnd-silence-dc",
             type: "dnd-roll",
-            label: "Silence Field DC Reminder",
+            label: "Silence Field",
             roll: "1d20+5",
-            notes: "Placeholder roll for the MVP action model.",
-            source: "custom"
+            notes: "Area control — GM adjudicates effect.",
+            source: "custom",
+            metadata: { combatCategory: "power" }
           }
         ]
       },
@@ -134,7 +138,8 @@ export const characterProfiles: CharacterProfile[] = [
             label: "Resonance Projection",
             pool: 8,
             again: 10,
-            source: "custom"
+            source: "custom",
+            metadata: { combatCategory: "power" }
           },
           {
             id: "nwod-absolute-silence",
@@ -142,7 +147,8 @@ export const characterProfiles: CharacterProfile[] = [
             label: "Absolute Silence",
             pool: 8,
             again: 10,
-            source: "custom"
+            source: "custom",
+            metadata: { combatCategory: "power" }
           },
           {
             id: "nwod-signal-hijack",
@@ -150,7 +156,8 @@ export const characterProfiles: CharacterProfile[] = [
             label: "Signal Hijack",
             pool: 7,
             again: 10,
-            source: "custom"
+            source: "custom",
+            metadata: { combatCategory: "skill" }
           },
           {
             id: "nwod-harmonic-ward",

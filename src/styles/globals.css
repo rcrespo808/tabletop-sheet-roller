@@ -32,3 +32,45 @@ select {
 img {
   display: block;
 }
+
+@keyframes rpgm-float-up {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-1.25rem) scale(1.1);
+  }
+}
+
+@keyframes rpgm-hp-flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  40% {
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.55);
+  }
+}
+
+.rpgm-damage-popup {
+  animation: rpgm-float-up 1.4s ease-out forwards;
+}
+
+.rpgm-hp-flash {
+  animation: rpgm-hp-flash 1.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rpgm-damage-popup {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .rpgm-hp-flash {
+    animation: none;
+    box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.4);
+  }
+}

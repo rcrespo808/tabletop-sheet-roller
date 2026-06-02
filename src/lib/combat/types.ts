@@ -27,6 +27,7 @@ export type PendingCombatAction = {
   combatantId: string;
   declaredByUserId?: string;
   actionId?: string;
+  actionLabel?: string;
   targetId?: string;
   note?: string;
   createdAt: string;

@@ -49,6 +49,7 @@ import {
 } from "@/lib/combat/combatRepository";
 import { listNpcTemplates } from "@/lib/combat/npcTemplates";
 import { resolveCombatAction } from "@/lib/combat/resolveCombatAction";
+import type { BuiltinCommandId } from "@/lib/combat/rpgmActionCatalog";
 import type {
   Combatant,
   CombatAction,
@@ -160,6 +161,7 @@ export default function CombatPage() {
     targetId: string;
     targetBeforeHp?: number;
     targetAfterHp?: number;
+    details?: Record<string, unknown>;
   } | null>(null);
 
   const [selectedCharacterId, setSelectedCharacterId] = useState("");
@@ -313,12 +315,28 @@ export default function CombatPage() {
         details: {
           resultType: "damage",
           system: activeEncounter.system,
+          targetId: target.id,
+          targetName: target.instanceName,
           hpBefore: beforeHp,
           hpAfter: afterHp,
           damageApplied: amount
         }
       })
     );
+    setRecentResult({
+      summary: `${target.instanceName} took ${amount} damage.`,
+      targetId: target.id,
+      targetBeforeHp: beforeHp,
+      targetAfterHp: afterHp,
+      details: {
+        resultType: "damage",
+        targetId: target.id,
+        targetName: target.instanceName,
+        hpBefore: beforeHp,
+        hpAfter: afterHp,
+        damageApplied: amount
+      }
+    });
     await persistEncounter(withHistory, { logNewHistoryFrom: activeEncounter });
   }
 
@@ -339,11 +357,26 @@ export default function CombatPage() {
         details: {
           resultType: "healing",
           system: activeEncounter.system,
+          targetId: target.id,
+          targetName: target.instanceName,
           hpBefore: beforeHp,
           hpAfter: afterHp
         }
       })
     );
+    setRecentResult({
+      summary: `${target.instanceName} healed ${amount}.`,
+      targetId: target.id,
+      targetBeforeHp: beforeHp,
+      targetAfterHp: afterHp,
+      details: {
+        resultType: "healing",
+        targetId: target.id,
+        targetName: target.instanceName,
+        hpBefore: beforeHp,
+        hpAfter: afterHp
+      }
+    });
     await persistEncounter(withHistory, { logNewHistoryFrom: activeEncounter });
   }
 
@@ -376,13 +409,32 @@ export default function CombatPage() {
     await persistEncounter(setActiveTurn(activeEncounter, combatantId), { logNewHistoryFrom: activeEncounter });
   }
 
-  async function handleDeclareCurrentAction(actionId: string) {
+  async function handleDeclareCurrentAction(actionId: string, targetId?: string | null) {
     if (!activeEncounter || !currentCombatant) return;
+    const resolvedTargetId = targetId ?? effectiveSelectedTargetId;
     const declared = declarePendingAction(activeEncounter, {
       combatantId: currentCombatant.id,
       declaredByUserId: authState?.user?.id,
       actionId,
-      targetId: effectiveSelectedTargetId || undefined
+      targetId: resolvedTargetId || undefined
+    });
+    await persistEncounter(declared, { logNewHistoryFrom: activeEncounter });
+  }
+
+  async function handleDeclareBuiltIn(command: BuiltinCommandId, targetId?: string | null) {
+    if (!activeEncounter || !currentCombatant) return;
+    const labels: Record<BuiltinCommandId, string> = {
+      defend: "Defend",
+      wait: "Wait",
+      flee: "Flee"
+    };
+    const resolvedTargetId = targetId ?? effectiveSelectedTargetId;
+    const declared = declarePendingAction(activeEncounter, {
+      combatantId: currentCombatant.id,
+      declaredByUserId: authState?.user?.id,
+      actionLabel: labels[command],
+      note: labels[command],
+      targetId: resolvedTargetId || undefined
     });
     await persistEncounter(declared, { logNewHistoryFrom: activeEncounter });
   }
@@ -418,7 +470,8 @@ export default function CombatPage() {
         summary: result.summary,
         targetId: selected,
         targetBeforeHp: Number(result.details.targetBeforeHp ?? 0),
-        targetAfterHp: Number(result.details.targetAfterHp ?? 0)
+        targetAfterHp: Number(result.details.targetAfterHp ?? 0),
+        details: result.details
       });
       await persistEncounter(resolvedEncounter);
       await addLogEntry(result.logEntry);
@@ -819,12 +872,14 @@ export default function CombatPage() {
             <PlayerCombatScreen
               activeCombatant={currentCombatant}
               canDeclare={activeOwnedByUser && !gmUser}
+              currentUserId={authState?.user?.id}
               encounter={activeEncounter}
               onDeclareAction={handleDeclareCurrentAction}
+              onDeclareBuiltIn={handleDeclareBuiltIn}
               onRefresh={refresh}
               onSelectedTargetIdChange={setSelectedTargetId}
               ownedCombatants={playerOwnedCombatants}
-              selectedTarget={selectedTarget}
+              recentResult={recentResult}
               selectedTargetId={effectiveSelectedTargetId}
               validTargets={validTargets}
             />

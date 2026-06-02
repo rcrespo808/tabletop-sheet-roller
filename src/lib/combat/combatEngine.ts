@@ -73,6 +73,13 @@ export function createCombatantFromCharacter(
     combatant.metadata = { initiativeStat: stats?.initiative };
   }
 
+  if (character.portraitImage) {
+    combatant.metadata = {
+      ...(combatant.metadata ?? {}),
+      portraitUrl: character.portraitImage
+    };
+  }
+
   return combatant;
 }
 
@@ -387,7 +394,9 @@ export function declarePendingAction(
   const actor = encounter.combatants.find((combatant) => combatant.id === nextPendingAction.combatantId);
   const target = encounter.combatants.find((combatant) => combatant.id === nextPendingAction.targetId);
   const action = actor?.combatActions.find((entry) => entry.id === nextPendingAction.actionId);
-  const summary = `${actor?.instanceName ?? "Combatant"} declared ${action?.label ?? "an action"}${
+  const declaredLabel =
+    action?.label ?? nextPendingAction.actionLabel ?? nextPendingAction.note ?? "an action";
+  const summary = `${actor?.instanceName ?? "Combatant"} declared ${declaredLabel}${
     target ? ` targeting ${target.instanceName}` : ""
   }.`;
   return appendCombatHistory(
@@ -401,7 +410,7 @@ export function declarePendingAction(
       actorName: actor?.instanceName,
       targetId: target?.id,
       targetName: target?.instanceName,
-      actionLabel: action?.label,
+      actionLabel: declaredLabel,
       summary,
       details: {
         resultType: "action_declared",
