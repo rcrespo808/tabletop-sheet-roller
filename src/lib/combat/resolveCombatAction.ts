@@ -2,7 +2,7 @@ import { createRollLogEntry } from "@/lib/dice/log";
 import { rollDndExpression } from "@/lib/dice/dnd";
 import { rollNwodPool } from "@/lib/dice/nwod";
 import type { CombatAction, CombatEncounter, Combatant } from "@/lib/combat/types";
-import { applyDamage } from "@/lib/combat/combatEngine";
+import { appendCombatHistory, applyDamage, makeCombatLogEntry } from "@/lib/combat/combatEngine";
 import type { RollLogEntry } from "@/lib/sheets/types";
 
 export type CombatResolutionResult = {
@@ -161,6 +161,41 @@ export function resolveCombatAction({
       crit
     );
 
+    const details = {
+      encounterId: encounter.id,
+      round: encounter.round,
+      attackerId,
+      attackerName: attacker.instanceName,
+      targetId,
+      targetName: target.instanceName,
+      actionId,
+      actionLabel: action.label,
+      system: "dnd5e",
+      resultType: hit ? "attack_hit" : "attack_miss",
+      attackTotal,
+      defenseTarget: getDefenseValue(target),
+      targetAc: getDefenseValue(target),
+      hit,
+      crit,
+      damageApplied,
+      hpBefore: targetBeforeHp,
+      hpAfter: targetAfterHp,
+      targetBeforeHp,
+      targetAfterHp
+    };
+    nextEncounter = appendCombatHistory(
+      nextEncounter,
+      makeCombatLogEntry(nextEncounter, {
+        actorId: attacker.id,
+        actorName: attacker.instanceName,
+        targetId: target.id,
+        targetName: target.instanceName,
+        actionLabel: action.label,
+        summary,
+        details
+      })
+    );
+
     return {
       encounter: nextEncounter,
       hit,
@@ -168,25 +203,15 @@ export function resolveCombatAction({
       damageApplied,
       summary,
       logEntry: createRollLogEntry({
-        kind: "system",
+        kind: "combat",
         characterName: attacker.instanceName,
         actionLabel: `${attacker.instanceName} -> ${target.instanceName}: ${action.label}`,
         system: "dnd5e",
         expression: attackResult.expression,
         resultText: summary,
-        details: summary
+        details
       }),
-      details: {
-        attackerId,
-        targetId,
-        actionId,
-        attackTotal,
-        targetAc: getDefenseValue(target),
-        hit,
-        damageApplied,
-        targetBeforeHp,
-        targetAfterHp
-      }
+      details
     };
   }
 
@@ -231,6 +256,44 @@ export function resolveCombatAction({
     armor
   );
 
+  const details = {
+    encounterId: encounter.id,
+    round: encounter.round,
+    attackerId,
+    attackerName: attacker.instanceName,
+    targetId,
+    targetName: target.instanceName,
+    actionId,
+    actionLabel: nwodAction.label,
+    system: "nwod",
+    resultType: totalDamage > 0 ? "damage" : "attack_miss",
+    basePool,
+    defense,
+    finalPool,
+    chanceDie: finalPool <= 0,
+    successes,
+    weaponDamage: nwodAction.damage ?? 0,
+    armor,
+    totalDamage,
+    damageApplied: totalDamage,
+    hpBefore: targetBeforeHp,
+    hpAfter: targetAfterHp,
+    targetBeforeHp,
+    targetAfterHp
+  };
+  nextEncounter = appendCombatHistory(
+    nextEncounter,
+    makeCombatLogEntry(nextEncounter, {
+      actorId: attacker.id,
+      actorName: attacker.instanceName,
+      targetId: target.id,
+      targetName: target.instanceName,
+      actionLabel: nwodAction.label,
+      summary,
+      details
+    })
+  );
+
   return {
     encounter: nextEncounter,
     hit: totalDamage > 0,
@@ -239,26 +302,14 @@ export function resolveCombatAction({
     damageApplied: totalDamage,
     summary,
     logEntry: createRollLogEntry({
-      kind: "system",
+      kind: "combat",
       characterName: attacker.instanceName,
       actionLabel: `${attacker.instanceName} -> ${target.instanceName}: ${action.label}`,
       system: "nwod",
       expression: poolResult.expression,
       resultText: summary,
-      details: summary
+      details
     }),
-    details: {
-      attackerId,
-      targetId,
-      actionId,
-      basePool,
-      defense,
-      finalPool,
-      successes,
-      armor,
-      totalDamage,
-      targetBeforeHp,
-      targetAfterHp
-    }
+    details
   };
 }

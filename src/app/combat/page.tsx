@@ -21,14 +21,19 @@ import {
   applyDamage,
   applyHealing,
   canAct,
+  clearPendingAction,
   createCombatantFromCharacter,
   createCombatantFromNpcTemplate,
   createEncounter,
+  declarePendingAction,
   getValidTargets,
+  makeCombatLogEntry,
   nextTurn,
   previousTurn,
   setCombatantStatus,
   startEncounter,
+  setActiveTurn,
+  appendCombatHistory,
   updateCombatant
 } from "@/lib/combat/combatEngine";
 import {
@@ -40,12 +45,17 @@ import {
 } from "@/lib/combat/combatRepository";
 import { listNpcTemplates } from "@/lib/combat/npcTemplates";
 import { resolveCombatAction } from "@/lib/combat/resolveCombatAction";
-import type { Combatant, CombatEncounter, CombatStatus, CombatTeam } from "@/lib/combat/types";
-import { createRollLogEntry } from "@/lib/dice/log";
 import type {
-  GameSystem,
-  RollLogEntry,
-} from "@/lib/sheets/types";
+  Combatant,
+  CombatEncounter,
+  CombatEncounterSystem,
+  CombatLogEntry,
+  CombatStatus,
+  CombatTeam
+} from "@/lib/combat/types";
+import { createRollLogEntry } from "@/lib/dice/log";
+import type { RollLogEntry } from "@/lib/sheets/types";
+import type { AuthState } from "@/lib/auth/supabaseAuth";
 import { listCharacters } from "@/lib/storage/characterRepository";
 import {
   clearRollLogs,
@@ -72,12 +82,44 @@ const STATUS_LABELS: Record<CombatStatus, string> = {
   hidden: "Hidden"
 };
 
-function formatTargetNames(encounter: CombatEncounter, combatant: Combatant): string {
-  if (combatant.targetIds.length === 0) return "";
-  const names = combatant.targetIds
-    .map((id) => encounter.combatants.find((entry) => entry.id === id)?.instanceName)
-    .filter(Boolean);
-  return names.length > 0 ? ` -> ${names.join(", ")}` : "";
+const SYSTEM_LABELS: Record<CombatEncounterSystem, string> = {
+  dnd5e: "D&D 5e",
+  nwod: "NWoD"
+};
+
+function isGm(authState: AuthState | null): boolean {
+  return authState?.profile?.userLevel === "gm";
+}
+
+function isPlayerControlledByCurrentUser(
+  combatant: Combatant | null,
+  authState: AuthState | null
+): boolean {
+  return Boolean(
+    combatant &&
+      authState?.user?.id &&
+      combatant.controlledByUserId &&
+      combatant.controlledByUserId === authState.user.id
+  );
+}
+
+function combatHistoryEntryToRollLogEntry(
+  encounter: CombatEncounter,
+  historyEntry: CombatLogEntry
+): RollLogEntry {
+  return createRollLogEntry({
+    kind: "combat",
+    characterName: historyEntry.actorName,
+    actionLabel: historyEntry.actionLabel,
+    system: encounter.system,
+    resultText: historyEntry.summary,
+    details: {
+      encounterId: encounter.id,
+      round: historyEntry.round,
+      turnIndex: historyEntry.turnIndex,
+      ...historyEntry.details
+    }
+  });
 }
 
 export default function CombatPage() {
@@ -90,6 +132,7 @@ export default function CombatPage() {
   const [rollLogOpen, setRollLogOpen] = useState(false);
   const [entries, setEntries] = useState<RollLogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
+  const [authState, setAuthState] = useState<AuthState | null>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string>("");
   const [showAllTargets, setShowAllTargets] = useState(false);
   const [recentResult, setRecentResult] = useState<{
@@ -103,7 +146,22 @@ export default function CombatPage() {
   const [selectedNpcId, setSelectedNpcId] = useState("kobold-cr1-dnd5e");
   const [npcQuantity, setNpcQuantity] = useState("1");
   const [selectedTeam, setSelectedTeam] = useState<CombatTeam>("enemies");
-  const [selectedSystem, setSelectedSystem] = useState<GameSystem>("dnd5e");
+  const [selectedSystem, setSelectedSystem] = useState<CombatEncounterSystem>("dnd5e");
+
+  const encounterSystem = activeEncounter?.system ?? selectedSystem;
+  const npcTemplates = useMemo(() => listNpcTemplates(encounterSystem), [encounterSystem]);
+  const compatibleCharacters = useMemo(
+    () => characters.filter((character) => Boolean(character.sheets[encounterSystem])),
+    [characters, encounterSystem]
+  );
+  const effectiveSelectedNpcId = npcTemplates.some((template) => template.id === selectedNpcId)
+    ? selectedNpcId
+    : npcTemplates[0]?.id ?? "";
+  const effectiveSelectedCharacterId = compatibleCharacters.some(
+    (character) => character.id === selectedCharacterId
+  )
+    ? selectedCharacterId
+    : "";
 
   const refresh = async () => {
     const [loadedEncounters, loadedCharacters] = await Promise.all([
@@ -136,13 +194,23 @@ export default function CombatPage() {
       .finally(() => setLoadingLogs(false));
   }, []);
 
-  async function persistEncounter(encounter: CombatEncounter) {
+  async function persistEncounter(encounter: CombatEncounter, options?: { logNewHistoryFrom?: CombatEncounter | null }) {
     const saved = await saveEncounter(encounter);
     setActiveEncounter(saved);
     setEncounters((current) => {
       const without = current.filter((entry) => entry.id !== saved.id);
       return [saved, ...without];
     });
+
+    if (options?.logNewHistoryFrom) {
+      const previousIds = new Set((options.logNewHistoryFrom.actionHistory ?? []).map((entry) => entry.id));
+      const newEntries = (saved.actionHistory ?? [])
+        .filter((entry) => !previousIds.has(entry.id))
+        .reverse();
+      for (const historyEntry of newEntries) {
+        await addLogEntry(combatHistoryEntryToRollLogEntry(saved, historyEntry));
+      }
+    }
   }
 
   async function addLogEntry(entry: RollLogEntry) {
@@ -176,26 +244,22 @@ export default function CombatPage() {
     setRecentResult(null);
   }
 
-  const npcTemplates = useMemo(() => listNpcTemplates(selectedSystem), [selectedSystem]);
-
   async function handleAddCharacter() {
-    if (!activeEncounter || !selectedCharacterId) return;
-    const character = characters.find((entry) => entry.id === selectedCharacterId);
+    if (!activeEncounter || !effectiveSelectedCharacterId) return;
+    const character = characters.find((entry) => entry.id === effectiveSelectedCharacterId);
     if (!character) return;
 
-    const system =
-      character.sheets[selectedSystem] ? selectedSystem : character.defaultSystem;
-    const combatant = createCombatantFromCharacter(character, system, "players");
+    if (!character.sheets[activeEncounter.system]) return;
+    const combatant = createCombatantFromCharacter(character, activeEncounter.system, "players");
     await persistEncounter({
       ...activeEncounter,
-      combatants: [...activeEncounter.combatants, combatant],
-      system: activeEncounter.system ?? system
+      combatants: [...activeEncounter.combatants, combatant]
     });
   }
 
   async function handleAddNpcs() {
-    if (!activeEncounter || !selectedNpcId) return;
-    const template = npcTemplates.find((entry) => entry.id === selectedNpcId);
+    if (!activeEncounter || !effectiveSelectedNpcId) return;
+    const template = npcTemplates.find((entry) => entry.id === effectiveSelectedNpcId);
     if (!template) return;
 
     const quantity = Math.max(1, Math.min(20, Number(npcQuantity) || 1));
@@ -205,29 +269,107 @@ export default function CombatPage() {
 
     await persistEncounter({
       ...activeEncounter,
-      combatants: [...activeEncounter.combatants, ...additions],
-      system:
-        activeEncounter.system && activeEncounter.system !== "mixed"
-          ? activeEncounter.system
-          : template.system
+      combatants: [...activeEncounter.combatants, ...additions]
     });
   }
 
-  async function patchCombatant(combatantId: string, updater: (combatant: Combatant) => Combatant) {
-    if (!activeEncounter) return;
-    await persistEncounter(updateCombatant(activeEncounter, combatantId, updater));
+  async function handleManualDamage(combatantId: string, amount: number) {
+    if (!activeEncounter || !gmUser || amount <= 0) return;
+    const target = activeEncounter.combatants.find((combatant) => combatant.id === combatantId);
+    if (!target) return;
+    const beforeHp = target.currentHp ?? target.maxHp ?? 0;
+    const updated = updateCombatant(activeEncounter, combatantId, (combatant) => applyDamage(combatant, amount));
+    const after = updated.combatants.find((combatant) => combatant.id === combatantId);
+    const afterHp = after?.currentHp ?? after?.maxHp ?? 0;
+    const withHistory = appendCombatHistory(
+      updated,
+      makeCombatLogEntry(updated, {
+        targetId: target.id,
+        targetName: target.instanceName,
+        summary: `${target.instanceName} took ${amount} damage. HP ${beforeHp} -> ${afterHp}.`,
+        details: {
+          resultType: "damage",
+          system: activeEncounter.system,
+          hpBefore: beforeHp,
+          hpAfter: afterHp,
+          damageApplied: amount
+        }
+      })
+    );
+    await persistEncounter(withHistory, { logNewHistoryFrom: activeEncounter });
+  }
+
+  async function handleManualHealing(combatantId: string, amount: number) {
+    if (!activeEncounter || !gmUser || amount <= 0) return;
+    const target = activeEncounter.combatants.find((combatant) => combatant.id === combatantId);
+    if (!target) return;
+    const beforeHp = target.currentHp ?? target.maxHp ?? 0;
+    const updated = updateCombatant(activeEncounter, combatantId, (combatant) => applyHealing(combatant, amount));
+    const after = updated.combatants.find((combatant) => combatant.id === combatantId);
+    const afterHp = after?.currentHp ?? after?.maxHp ?? 0;
+    const withHistory = appendCombatHistory(
+      updated,
+      makeCombatLogEntry(updated, {
+        targetId: target.id,
+        targetName: target.instanceName,
+        summary: `${target.instanceName} healed ${amount}. HP ${beforeHp} -> ${afterHp}.`,
+        details: {
+          resultType: "healing",
+          system: activeEncounter.system,
+          hpBefore: beforeHp,
+          hpAfter: afterHp
+        }
+      })
+    );
+    await persistEncounter(withHistory, { logNewHistoryFrom: activeEncounter });
+  }
+
+  async function handleStatusChange(combatantId: string, status: CombatStatus) {
+    if (!activeEncounter || !gmUser) return;
+    const target = activeEncounter.combatants.find((combatant) => combatant.id === combatantId);
+    if (!target) return;
+    const updated = updateCombatant(activeEncounter, combatantId, (combatant) =>
+      setCombatantStatus(combatant, status)
+    );
+    const withHistory = appendCombatHistory(
+      updated,
+      makeCombatLogEntry(updated, {
+        targetId: target.id,
+        targetName: target.instanceName,
+        summary: `${target.instanceName} status changed: ${STATUS_LABELS[target.status]} -> ${STATUS_LABELS[status]}.`,
+        details: {
+          resultType: "status_change",
+          system: activeEncounter.system,
+          statusBefore: target.status,
+          statusAfter: status
+        }
+      })
+    );
+    await persistEncounter(withHistory, { logNewHistoryFrom: activeEncounter });
+  }
+
+  async function handleMakeActive(combatantId: string) {
+    if (!activeEncounter || !gmUser) return;
+    await persistEncounter(setActiveTurn(activeEncounter, combatantId), { logNewHistoryFrom: activeEncounter });
   }
 
   const currentCombatant =
     activeEncounter && activeEncounter.combatants.length > 0
       ? activeEncounter.combatants[activeEncounter.turnIndex]
       : null;
+  const effectiveSelectedTargetId =
+    selectedTargetId ||
+    (activeEncounter?.pendingAction?.combatantId === currentCombatant?.id
+      ? activeEncounter?.pendingAction?.targetId ?? ""
+      : currentCombatant?.targetIds[0] ?? "");
   const selectedTarget =
-    activeEncounter?.combatants.find((entry) => entry.id === selectedTargetId) ?? null;
+    activeEncounter?.combatants.find((entry) => entry.id === effectiveSelectedTargetId) ?? null;
   const validTargets =
     activeEncounter && currentCombatant
       ? getValidTargets(activeEncounter, currentCombatant, { showAll: showAllTargets })
       : [];
+  const gmUser = isGm(authState);
+  const activeOwnedByUser = isPlayerControlledByCurrentUser(currentCombatant, authState);
 
   if (loading) {
     return (
@@ -275,7 +417,12 @@ export default function CombatPage() {
       </header>
 
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-        <AuthPanel onAuthChange={() => void refresh()} />
+        <AuthPanel
+          onAuthChange={(state) => {
+            setAuthState(state);
+            void refresh();
+          }}
+        />
 
         <GlassPanel level="secondary" className="p-5">
           <div className="flex flex-wrap items-end gap-3">
@@ -296,8 +443,23 @@ export default function CombatPage() {
                 ))}
               </select>
             </div>
+            <div className="min-w-[10rem]">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">
+                New System
+              </label>
+              <select
+                className="mt-1 h-10 w-full rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
+                disabled={!gmUser}
+                onChange={(event) => setSelectedSystem(event.target.value as CombatEncounterSystem)}
+                value={selectedSystem}
+              >
+                <option value="dnd5e">D&amp;D 5e</option>
+                <option value="nwod">NWoD</option>
+              </select>
+            </div>
             <button
-              className="h-10 rounded-md border border-purple-500/40 bg-purple-600/25 px-4 text-sm font-semibold text-purple-100"
+              className="h-10 rounded-md border border-purple-500/40 bg-purple-600/25 px-4 text-sm font-semibold text-purple-100 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!gmUser}
               onClick={() => void handleNewEncounter()}
               type="button"
             >
@@ -305,7 +467,8 @@ export default function CombatPage() {
             </button>
             {activeEncounter ? (
               <button
-                className="h-10 rounded-md border border-red-500/30 bg-red-950/30 px-4 text-sm font-semibold text-red-100"
+                className="h-10 rounded-md border border-red-500/30 bg-red-950/30 px-4 text-sm font-semibold text-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={!gmUser}
                 onClick={() => void handleDeleteEncounter()}
                 type="button"
               >
@@ -330,6 +493,7 @@ export default function CombatPage() {
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button
                   className="h-9 rounded-md border border-red-500/40 bg-red-950/40 px-3 text-xs font-semibold text-red-100"
+                  disabled={!gmUser}
                   onClick={handleClearSavedEncounters}
                   type="button"
                 >
@@ -346,23 +510,51 @@ export default function CombatPage() {
         {activeEncounter ? (
           <>
             <EncounterHeader
+              canManage={gmUser}
               currentName={currentCombatant?.instanceName}
               encounter={activeEncounter}
               onEnd={async () =>
                 persistEncounter({ ...activeEncounter, status: "completed" })
               }
-              onNext={async () => persistEncounter(nextTurn(activeEncounter))}
-              onPrevious={async () => persistEncounter(previousTurn(activeEncounter))}
+              onNext={async () =>
+                persistEncounter(nextTurn(activeEncounter), { logNewHistoryFrom: activeEncounter })
+              }
+              onPrevious={async () =>
+                persistEncounter(previousTurn(activeEncounter), { logNewHistoryFrom: activeEncounter })
+              }
               onRename={async (name) => persistEncounter({ ...activeEncounter, name })}
-              onStart={async () => persistEncounter(startEncounter(activeEncounter))}
+              onStart={async () =>
+                persistEncounter(startEncounter(activeEncounter), { logNewHistoryFrom: activeEncounter })
+              }
             />
 
             <ActiveTurnPanel
               activeCombatant={currentCombatant}
-              onEndTurn={async () => persistEncounter(nextTurn(activeEncounter))}
-              onNextTurn={async () => persistEncounter(nextTurn(activeEncounter))}
+              canDeclare={activeOwnedByUser && !gmUser}
+              canResolve={gmUser}
+              pendingAction={activeEncounter.pendingAction ?? null}
+              onDeclareAction={async (actionId) => {
+                if (!currentCombatant) return;
+                const declared = declarePendingAction(activeEncounter, {
+                  combatantId: currentCombatant.id,
+                  declaredByUserId: authState?.user?.id,
+                  actionId,
+                  targetId: effectiveSelectedTargetId || undefined
+                });
+                await persistEncounter(declared, { logNewHistoryFrom: activeEncounter });
+              }}
+              onClearPendingAction={async () => {
+                const cleared = clearPendingAction(activeEncounter);
+                await persistEncounter(cleared, { logNewHistoryFrom: activeEncounter });
+              }}
+              onEndTurn={async () =>
+                persistEncounter(nextTurn(activeEncounter), { logNewHistoryFrom: activeEncounter })
+              }
+              onNextTurn={async () =>
+                persistEncounter(nextTurn(activeEncounter), { logNewHistoryFrom: activeEncounter })
+              }
               onResolveAction={async (actionId) => {
-                const selected = selectedTargetId;
+                const selected = effectiveSelectedTargetId;
                 if (!selected) return;
                 const result = resolveCombatAction({
                   encounter: activeEncounter,
@@ -370,18 +562,22 @@ export default function CombatPage() {
                   targetId: selected,
                   actionId
                 });
+                const resolvedEncounter = {
+                  ...result.encounter,
+                  pendingAction: null
+                };
                 setRecentResult({
                   summary: result.summary,
                   targetId: selected,
                   targetBeforeHp: Number(result.details.targetBeforeHp ?? 0),
                   targetAfterHp: Number(result.details.targetAfterHp ?? 0)
                 });
-                await persistEncounter(result.encounter);
+                await persistEncounter(resolvedEncounter);
                 await addLogEntry(result.logEntry);
               }}
               onSelectedTargetIdChange={setSelectedTargetId}
               selectedTarget={selectedTarget}
-              selectedTargetId={selectedTargetId}
+              selectedTargetId={effectiveSelectedTargetId}
               showAllTargets={showAllTargets}
               setShowAllTargets={setShowAllTargets}
               validTargets={validTargets}
@@ -416,27 +612,23 @@ export default function CombatPage() {
                     <p className="text-sm font-semibold text-foreground">Player Character</p>
                     <select
                       className="mt-2 h-10 w-full rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
+                      disabled={!gmUser}
                       onChange={(event) => setSelectedCharacterId(event.target.value)}
-                      value={selectedCharacterId}
+                      value={effectiveSelectedCharacterId}
                     >
                       <option value="">Select character…</option>
-                      {characters.map((character) => (
+                      {compatibleCharacters.map((character) => (
                         <option key={character.id} value={character.id}>
                           {character.name}
                         </option>
                       ))}
                     </select>
-                    <select
-                      className="mt-2 h-10 w-full rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
-                      onChange={(event) => setSelectedSystem(event.target.value as GameSystem)}
-                      value={selectedSystem}
-                    >
-                      <option value="dnd5e">D&amp;D 5e</option>
-                      <option value="nwod">NWoD</option>
-                    </select>
+                    <p className="mt-2 rounded-md border border-slate-700/25 bg-slate-900/50 px-3 py-2 text-xs text-muted-foreground">
+                      Locked to {SYSTEM_LABELS[activeEncounter.system]} sheets for this encounter.
+                    </p>
                     <button
-                      className="mt-3 inline-flex h-10 items-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-700/25 px-4 text-sm font-semibold text-cyan-100"
-                      disabled={!selectedCharacterId}
+                      className="mt-3 inline-flex h-10 items-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-700/25 px-4 text-sm font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={!gmUser || !effectiveSelectedCharacterId}
                       onClick={() => void handleAddCharacter()}
                       type="button"
                     >
@@ -449,8 +641,9 @@ export default function CombatPage() {
                     <p className="text-sm font-semibold text-foreground">NPC Template</p>
                     <select
                       className="mt-2 h-10 w-full rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
+                      disabled={!gmUser}
                       onChange={(event) => setSelectedNpcId(event.target.value)}
-                      value={selectedNpcId}
+                      value={effectiveSelectedNpcId}
                     >
                       {npcTemplates.map((template) => (
                         <option key={template.id} value={template.id}>
@@ -461,6 +654,7 @@ export default function CombatPage() {
                     <div className="mt-2 grid grid-cols-2 gap-2">
                       <input
                         className="h-10 rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
+                        disabled={!gmUser}
                         min={1}
                         onChange={(event) => setNpcQuantity(event.target.value)}
                         type="number"
@@ -468,6 +662,7 @@ export default function CombatPage() {
                       />
                       <select
                         className="h-10 rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
+                        disabled={!gmUser}
                         onChange={(event) => setSelectedTeam(event.target.value as CombatTeam)}
                         value={selectedTeam}
                       >
@@ -479,7 +674,8 @@ export default function CombatPage() {
                       </select>
                     </div>
                     <button
-                      className="mt-3 inline-flex h-10 items-center gap-2 rounded-md border border-red-500/40 bg-red-700/25 px-4 text-sm font-semibold text-red-100"
+                      className="mt-3 inline-flex h-10 items-center gap-2 rounded-md border border-red-500/40 bg-red-700/25 px-4 text-sm font-semibold text-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={!gmUser || !effectiveSelectedNpcId}
                       onClick={() => void handleAddNpcs()}
                       type="button"
                     >
@@ -492,18 +688,16 @@ export default function CombatPage() {
             </GlassPanel>
 
             <CombatRoster
+              canManage={gmUser}
               encounter={activeEncounter}
-              onDamage={(id, amount) =>
-                patchCombatant(id, (combatant) => applyDamage(combatant, amount))
-              }
-              onHeal={(id, amount) =>
-                patchCombatant(id, (combatant) => applyHealing(combatant, amount))
-              }
-              onStatus={(id, status) =>
-                patchCombatant(id, (combatant) => setCombatantStatus(combatant, status))
-              }
+              onDamage={handleManualDamage}
+              onHeal={handleManualHealing}
+              onMakeActive={handleMakeActive}
+              onStatus={handleStatusChange}
               onTarget={(id) => setSelectedTargetId(id)}
             />
+
+            <CombatHistoryPanel entries={activeEncounter.actionHistory ?? []} />
           </>
         ) : (
           <GlassPanel level="tertiary" className="p-8 text-center">
@@ -558,6 +752,7 @@ export default function CombatPage() {
 function EncounterHeader({
   encounter,
   currentName,
+  canManage,
   onRename,
   onStart,
   onNext,
@@ -566,6 +761,7 @@ function EncounterHeader({
 }: {
   encounter: CombatEncounter;
   currentName?: string;
+  canManage: boolean;
   onRename: (name: string) => void | Promise<void>;
   onStart: () => void | Promise<void>;
   onNext: () => void | Promise<void>;
@@ -577,8 +773,9 @@ function EncounterHeader({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <input
-            className="bg-transparent text-2xl font-bold text-foreground outline-none"
+            className="bg-transparent text-2xl font-bold text-foreground outline-none disabled:opacity-80"
             defaultValue={encounter.name}
+            disabled={!canManage}
             key={`${encounter.id}-${encounter.updatedAt ?? encounter.name}`}
             onBlur={(event) => {
               const nextName = event.target.value.trim();
@@ -591,11 +788,18 @@ function EncounterHeader({
             Status: {encounter.status} · Round {encounter.round}
             {currentName ? ` · Turn: ${currentName}` : ""}
           </p>
+          <p className="mt-2 text-sm font-semibold text-red-100">
+            Encounter System: {SYSTEM_LABELS[encounter.system]}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Only {SYSTEM_LABELS[encounter.system]} combatants and actions are available.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {encounter.status === "draft" ? (
             <button
-              className="h-10 rounded-md border border-emerald-500/40 bg-emerald-700/25 px-4 text-sm font-semibold text-emerald-100"
+              className="h-10 rounded-md border border-emerald-500/40 bg-emerald-700/25 px-4 text-sm font-semibold text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!canManage}
               onClick={() => void onStart()}
               type="button"
             >
@@ -605,21 +809,24 @@ function EncounterHeader({
           {encounter.status === "active" ? (
             <>
               <button
-                className="h-10 rounded-md border border-slate-600/40 px-4 text-sm font-semibold"
+                className="h-10 rounded-md border border-slate-600/40 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={!canManage}
                 onClick={() => void onPrevious()}
                 type="button"
               >
                 Previous
               </button>
               <button
-                className="h-10 rounded-md border border-purple-500/40 bg-purple-600/25 px-4 text-sm font-semibold text-purple-100"
+                className="h-10 rounded-md border border-purple-500/40 bg-purple-600/25 px-4 text-sm font-semibold text-purple-100 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={!canManage}
                 onClick={() => void onNext()}
                 type="button"
               >
                 Next Turn
               </button>
               <button
-                className="h-10 rounded-md border border-red-500/30 px-4 text-sm font-semibold text-red-100"
+                className="h-10 rounded-md border border-red-500/30 px-4 text-sm font-semibold text-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={!canManage}
                 onClick={() => void onEnd()}
                 type="button"
               >
@@ -635,15 +842,19 @@ function EncounterHeader({
 
 function CombatRoster({
   encounter,
+  canManage,
   onTarget,
   onDamage,
   onHeal,
+  onMakeActive,
   onStatus
 }: {
   encounter: CombatEncounter;
+  canManage: boolean;
   onTarget: (id: string) => void | Promise<void>;
   onDamage: (id: string, amount: number) => void | Promise<void>;
   onHeal: (id: string, amount: number) => void | Promise<void>;
+  onMakeActive: (id: string) => void | Promise<void>;
   onStatus: (id: string, status: CombatStatus) => void | Promise<void>;
 }) {
   if (encounter.combatants.length === 0) {
@@ -678,10 +889,12 @@ function CombatRoster({
                 isCurrentTurn={
                   encounter.status === "active" && encounter.turnIndex === index
                 }
+                canManage={canManage}
                 key={combatant.id}
                 layout="table"
                 onDamage={onDamage}
                 onHeal={onHeal}
+                onMakeActive={onMakeActive}
                 onStatus={onStatus}
                 onTarget={onTarget}
               />
@@ -696,10 +909,12 @@ function CombatRoster({
             combatant={combatant}
             encounter={encounter}
             isCurrentTurn={encounter.status === "active" && encounter.turnIndex === index}
+            canManage={canManage}
             key={combatant.id}
             layout="card"
             onDamage={onDamage}
             onHeal={onHeal}
+            onMakeActive={onMakeActive}
             onStatus={onStatus}
             onTarget={onTarget}
           />
@@ -709,8 +924,49 @@ function CombatRoster({
   );
 }
 
+function CombatHistoryPanel({ entries }: { entries: CombatLogEntry[] }) {
+  return (
+    <GlassPanel level="secondary" className="p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-foreground">Combat History</h2>
+        <span className="text-xs text-muted-foreground">{entries.length} entries</span>
+      </div>
+      <div className="mt-4 max-h-72 space-y-2 overflow-y-auto pr-1">
+        {entries.length === 0 ? (
+          <p className="rounded-md border border-dashed border-slate-700/25 p-4 text-sm text-muted-foreground">
+            No combat events recorded yet.
+          </p>
+        ) : (
+          entries.slice(0, 30).map((entry) => (
+            <article
+              className="rounded-md border border-slate-700/20 bg-slate-950/35 p-3"
+              key={entry.id}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase text-red-100">
+                  Round {entry.round} · Turn {entry.turnIndex + 1}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {new Intl.DateTimeFormat(undefined, {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                  }).format(new Date(entry.createdAt))}
+                </p>
+              </div>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-slate-100">{entry.summary}</p>
+            </article>
+          ))
+        )}
+      </div>
+    </GlassPanel>
+  );
+}
+
 function ActiveTurnPanel({
   activeCombatant,
+  canResolve,
+  canDeclare,
+  pendingAction,
   selectedTargetId,
   selectedTarget,
   validTargets,
@@ -718,10 +974,15 @@ function ActiveTurnPanel({
   setShowAllTargets,
   onSelectedTargetIdChange,
   onResolveAction,
+  onDeclareAction,
+  onClearPendingAction,
   onEndTurn,
   onNextTurn
 }: {
   activeCombatant: Combatant | null;
+  canResolve: boolean;
+  canDeclare: boolean;
+  pendingAction: CombatEncounter["pendingAction"];
   selectedTargetId: string;
   selectedTarget: Combatant | null;
   validTargets: Combatant[];
@@ -729,11 +990,16 @@ function ActiveTurnPanel({
   setShowAllTargets: (value: boolean) => void;
   onSelectedTargetIdChange: (value: string) => void;
   onResolveAction: (actionId: string) => void | Promise<void>;
+  onDeclareAction: (actionId: string) => void | Promise<void>;
+  onClearPendingAction: () => void | Promise<void>;
   onEndTurn: () => void | Promise<void>;
   onNextTurn: () => void | Promise<void>;
 }) {
   const actions = activeCombatant?.combatActions ?? [];
   const attackActions = actions.filter((action) => action.kind !== "utility");
+  const pendingActionLabel = pendingAction?.actionId
+    ? actions.find((action) => action.id === pendingAction.actionId)?.label
+    : undefined;
   const targetSummary = selectedTarget
     ? `${selectedTarget.instanceName} · ${TEAM_LABELS[selectedTarget.team]} · HP ${
         selectedTarget.currentHp ?? selectedTarget.maxHp ?? "—"
@@ -763,18 +1029,20 @@ function ActiveTurnPanel({
         </div>
         <div className="flex flex-wrap gap-2">
           <button
-            className="h-10 rounded-md border border-slate-600/40 px-4 text-sm font-semibold"
+            className="h-10 rounded-md border border-slate-600/40 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!canResolve}
             onClick={() => void onEndTurn()}
             type="button"
           >
             End Turn
           </button>
           <button
-            className="h-10 rounded-md border border-purple-500/40 bg-purple-600/25 px-4 text-sm font-semibold text-purple-100"
+            className="h-10 rounded-md border border-purple-500/40 bg-purple-600/25 px-4 text-sm font-semibold text-purple-100 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!canResolve}
             onClick={() => void onNextTurn()}
             type="button"
           >
-            Next Turn
+            Next Turn Override
           </button>
         </div>
       </div>
@@ -833,20 +1101,52 @@ function ActiveTurnPanel({
           ) : null}
           <div className="mt-3 flex flex-wrap gap-2">
             {attackActions.map((action) => (
-              <button
-                className="inline-flex h-10 items-center gap-2 rounded-md border border-purple-500/35 bg-purple-600/20 px-3 text-sm font-semibold text-purple-100 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={!activeCombatant || !canAct(activeCombatant) || !selectedTargetId}
-                key={action.id}
-                onClick={() => void onResolveAction(action.id)}
-                type="button"
-              >
-                <Dices className="h-4 w-4" />
-                {action.label}
-              </button>
+              <div className="flex flex-wrap gap-2" key={action.id}>
+                <button
+                  className="inline-flex h-10 items-center gap-2 rounded-md border border-purple-500/35 bg-purple-600/20 px-3 text-sm font-semibold text-purple-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={!canResolve || !activeCombatant || !canAct(activeCombatant) || !selectedTargetId}
+                  onClick={() => void onResolveAction(action.id)}
+                  type="button"
+                >
+                  <Dices className="h-4 w-4" />
+                  Resolve {action.label}
+                </button>
+                {canDeclare ? (
+                  <button
+                    className="inline-flex h-10 items-center gap-2 rounded-md border border-cyan-500/35 bg-cyan-700/20 px-3 text-sm font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={!activeCombatant || !canAct(activeCombatant) || !selectedTargetId}
+                    onClick={() => void onDeclareAction(action.id)}
+                    type="button"
+                  >
+                    <Target className="h-4 w-4" />
+                    Declare {action.label}
+                  </button>
+                ) : null}
+              </div>
             ))}
           </div>
+          {pendingAction ? (
+            <div className="mt-4 rounded-md border border-cyan-500/30 bg-cyan-950/30 p-3 text-sm text-cyan-100">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p className="font-semibold">Pending action waiting for GM.</p>
+                <button
+                  className="rounded border border-cyan-400/40 px-2 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={!canResolve}
+                  onClick={() => void onClearPendingAction()}
+                  type="button"
+                >
+                  Clear
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-cyan-100/80">
+                {activeCombatant?.instanceName ?? "Combatant"} →{" "}
+                {selectedTarget?.instanceName ?? pendingAction.targetId ?? "target"} with{" "}
+                {pendingActionLabel ?? pendingAction.actionId ?? "action"}.
+              </p>
+            </div>
+          ) : null}
           <div className="mt-4 rounded-md border border-slate-700/25 bg-slate-900/50 p-3 text-sm text-muted-foreground">
-            Action resolved. End turn when ready.
+            Action resolved. GM may end turn when ready.
           </div>
         </div>
       </div>
@@ -859,18 +1159,22 @@ function CombatantRow({
   encounter,
   layout,
   isCurrentTurn,
+  canManage,
   onTarget,
   onDamage,
   onHeal,
+  onMakeActive,
   onStatus
 }: {
   combatant: Combatant;
   encounter: CombatEncounter;
   layout: "table" | "card";
   isCurrentTurn: boolean;
+  canManage: boolean;
   onTarget: (id: string) => void | Promise<void>;
   onDamage: (id: string, amount: number) => void | Promise<void>;
   onHeal: (id: string, amount: number) => void | Promise<void>;
+  onMakeActive: (id: string) => void | Promise<void>;
   onStatus: (id: string, status: CombatStatus) => void | Promise<void>;
 }) {
   const [damageInput, setDamageInput] = useState("5");
@@ -890,6 +1194,7 @@ function CombatantRow({
     <div className="flex flex-wrap gap-1">
       <button
         className="h-8 rounded border border-slate-600/40 px-2 text-xs"
+        disabled={!canManage}
         onClick={() => onDamage(combatant.id, 5)}
         type="button"
       >
@@ -897,29 +1202,33 @@ function CombatantRow({
       </button>
       <input
         className="h-8 w-12 rounded border border-slate-700/30 bg-slate-900/60 px-1 text-xs"
+        disabled={!canManage}
         onChange={(event) => setDamageInput(event.target.value)}
         type="number"
         value={damageInput}
       />
       <button
         className="h-8 rounded border border-red-500/30 px-2 text-xs text-red-100"
+        disabled={!canManage}
         onClick={() => onDamage(combatant.id, Number(damageInput) || 0)}
         type="button"
       >
-        Dmg
+        Apply Damage
       </button>
       <input
         className="h-8 w-12 rounded border border-slate-700/30 bg-slate-900/60 px-1 text-xs"
+        disabled={!canManage}
         onChange={(event) => setHealInput(event.target.value)}
         type="number"
         value={healInput}
       />
       <button
         className="h-8 rounded border border-emerald-500/30 px-2 text-xs text-emerald-100"
+        disabled={!canManage}
         onClick={() => onHeal(combatant.id, Number(healInput) || 0)}
         type="button"
       >
-        Heal
+        Apply Healing
       </button>
       <button
         className="h-8 rounded border border-amber-400 bg-amber-500/20 px-2 text-xs text-amber-100"
@@ -931,6 +1240,7 @@ function CombatantRow({
       {(["down", "dead", "fled", "hidden", "active"] as CombatStatus[]).map((status) => (
         <button
           className="h-8 rounded border border-slate-600/40 px-2 text-[10px] uppercase"
+          disabled={!canManage}
           key={status}
           onClick={() => onStatus(combatant.id, status)}
           type="button"
@@ -938,6 +1248,14 @@ function CombatantRow({
           {status}
         </button>
       ))}
+      <button
+        className="h-8 rounded border border-purple-500/30 px-2 text-xs text-purple-100"
+        disabled={!canManage}
+        onClick={() => onMakeActive(combatant.id)}
+        type="button"
+      >
+        Make Active
+      </button>
     </div>
   );
 

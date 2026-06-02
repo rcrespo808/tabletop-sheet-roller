@@ -16,15 +16,33 @@ type SupabaseCombatEncounterRow = {
 };
 
 function rowToEncounter(row: SupabaseCombatEncounterRow): CombatEncounter {
+  const payload = row.combatants;
+  const payloadObject =
+    payload && typeof payload === "object" && !Array.isArray(payload)
+      ? (payload as {
+          combatants?: unknown;
+          pendingAction?: CombatEncounter["pendingAction"];
+          actionHistory?: unknown;
+        })
+      : null;
+
   return {
     id: row.id,
     gameTableId: row.game_table_id ?? undefined,
     name: row.name,
-    system: (row.system as CombatEncounter["system"]) ?? undefined,
+    system: (row.system as CombatEncounter["system"]) ?? "dnd5e",
     round: row.round,
     turnIndex: row.turn_index,
     status: row.status as CombatEncounter["status"],
-    combatants: Array.isArray(row.combatants) ? row.combatants : [],
+    combatants: Array.isArray(payload)
+      ? payload
+      : Array.isArray(payloadObject?.combatants)
+        ? payloadObject.combatants
+        : [],
+    pendingAction: payloadObject?.pendingAction ?? null,
+    actionHistory: Array.isArray(payloadObject?.actionHistory)
+      ? (payloadObject.actionHistory as CombatEncounter["actionHistory"])
+      : [],
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -39,7 +57,11 @@ function encounterToInsert(encounter: CombatEncounter) {
     round: encounter.round,
     turn_index: encounter.turnIndex,
     status: encounter.status,
-    combatants: encounter.combatants,
+    combatants: {
+      combatants: encounter.combatants,
+      pendingAction: encounter.pendingAction ?? null,
+      actionHistory: encounter.actionHistory ?? []
+    },
     updated_at: new Date().toISOString()
   };
 }

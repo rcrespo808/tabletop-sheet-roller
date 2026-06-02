@@ -1,18 +1,19 @@
-import type { RollLogEntry, RollLogEntryKind } from "@/lib/sheets/types";
+import type { RollLogDetails, RollLogEntry, RollLogEntryKind } from "@/lib/sheets/types";
 import type { SupabaseRollLogInsert, SupabaseRollLogRow } from "@/lib/persistence/dtos";
 
-function detailsToJson(details?: string): SupabaseRollLogInsert["details"] {
+function detailsToJson(details?: RollLogDetails): SupabaseRollLogInsert["details"] {
   if (!details) return null;
+  if (typeof details === "object") return details;
   return { text: details };
 }
 
-function detailsFromJson(details: SupabaseRollLogRow["details"]): string | undefined {
+function detailsFromJson(details: SupabaseRollLogRow["details"]): RollLogDetails | undefined {
   if (!details) return undefined;
   if (typeof details === "string") return details;
   if (typeof details === "object" && "text" in details && typeof details.text === "string") {
     return details.text;
   }
-  return JSON.stringify(details);
+  return details;
 }
 
 export function rollLogEntryToInsert(

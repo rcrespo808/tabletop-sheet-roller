@@ -2,6 +2,7 @@ import type {
   NwodAgain,
   NwodRollOptions,
   NwodRollResult,
+  NwodSequenceRollResult,
   RandomSource
 } from "./types";
 
@@ -11,6 +12,36 @@ const maxExplosions = 1000;
 
 function rollD10(random: RandomSource): number {
   return Math.floor(random() * 10) + 1;
+}
+
+export function randomSourceFromD10Sequence(sequence: number[]): RandomSource {
+  let index = 0;
+  return () => {
+    const next = sequence[index];
+    index += 1;
+    if (!Number.isInteger(next) || next < 1 || next > 10) {
+      throw new Error("NWoD dice sequence exhausted or contains a non-d10 value.");
+    }
+    return (next - 1) / 10;
+  };
+}
+
+export function rollNwodPoolWithSequence(
+  options: NwodRollOptions,
+  sequence: number[]
+): NwodSequenceRollResult {
+  const consumedRolls: number[] = [];
+  const random = randomSourceFromD10Sequence(sequence);
+  const result = rollNwodPool(options, () => {
+    const value = rollD10(random);
+    consumedRolls.push(value);
+    return (value - 1) / 10;
+  });
+
+  return {
+    ...result,
+    consumedRolls
+  };
 }
 
 function shouldExplode(roll: number, again: NwodAgain): boolean {

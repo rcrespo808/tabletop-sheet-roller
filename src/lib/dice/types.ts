@@ -40,3 +40,7 @@ export type NwodRollResult = {
 };
 
 export type RandomSource = () => number;
+
+export type NwodSequenceRollResult = NwodRollResult & {
+  consumedRolls: number[];
+};

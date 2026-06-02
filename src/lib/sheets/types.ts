@@ -267,7 +267,9 @@ export type CharacterProfile = {
   updatedAt?: string;
 };
 
-export type RollLogEntryKind = "roll" | "note" | "system";
+export type RollLogEntryKind = "roll" | "note" | "system" | "combat";
+
+export type RollLogDetails = string | Record<string, unknown>;
 
 export type RollLogEntry = {
   id: string;
@@ -277,7 +279,7 @@ export type RollLogEntry = {
   system?: GameSystem;
   expression?: string;
   resultText: string;
-  details?: string;
+  details?: RollLogDetails;
   createdAt: string;
 };
 

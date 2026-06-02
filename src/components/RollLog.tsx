@@ -8,7 +8,8 @@ import {
   entryMatchesSearch,
   formatLogTime,
   formatSystemLabel,
-  normalizeRollLogEntry
+  normalizeRollLogEntry,
+  rollLogDetailsToText
 } from "@/lib/rollLog/export";
 import type { GameSystem, RollLogEntry, RollLogEntryKind } from "@/lib/sheets/types";
 import type { StorageMode } from "@/lib/storage/types";
@@ -168,6 +169,7 @@ export function RollLog({
             <option value="roll">Rolls</option>
             <option value="note">Notes</option>
             <option value="system">System</option>
+            <option value="combat">Combat</option>
           </select>
           <select
             className="h-9 rounded-lg border border-slate-700/30 bg-slate-900/50 px-2 text-xs text-foreground"
@@ -211,9 +213,14 @@ export function RollLog({
           filteredEntries.map((entry) => {
             const normalized = normalizeRollLogEntry(entry);
             const expanded = expandedIds.has(entry.id);
+            const detailsText = rollLogDetailsToText(normalized.details);
             const headerParts = [
               normalized.characterName,
-              normalized.kind === "note" ? "Note" : formatSystemLabel(normalized.system),
+              normalized.kind === "note"
+                ? "Note"
+                : normalized.kind === "combat"
+                  ? "Combat"
+                  : formatSystemLabel(normalized.system),
               normalized.actionLabel
             ].filter(Boolean);
 
@@ -226,7 +233,11 @@ export function RollLog({
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    {normalized.kind === "note" ? (
+                    {normalized.kind === "combat" ? (
+                      <span className="inline-flex rounded-full border border-red-400/40 bg-red-500/20 px-2 py-0.5 text-[10px] font-medium uppercase text-red-100">
+                        Combat
+                      </span>
+                    ) : normalized.kind === "note" ? (
                       <span className="inline-flex rounded-full border border-slate-500/40 bg-slate-500/20 px-2 py-0.5 text-[10px] font-medium uppercase text-slate-200">
                         Note
                       </span>
@@ -238,7 +249,7 @@ export function RollLog({
                       {formatLogTime(normalized.createdAt)}
                     </span>
                   </div>
-                  {normalized.details && !compactMode ? (
+                  {detailsText && !compactMode ? (
                     <button
                       className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-slate-800/50"
                       onClick={() => toggleExpanded(entry.id)}
@@ -260,7 +271,7 @@ export function RollLog({
 
                 {normalized.kind === "note" ? (
                   <p className={`mt-2 text-sm text-foreground ${compactMode ? "line-clamp-2" : ""}`}>
-                    {normalized.details ?? normalized.resultText}
+                    {detailsText ?? normalized.resultText}
                   </p>
                 ) : (
                   <>
@@ -270,9 +281,9 @@ export function RollLog({
                     {!compactMode && normalized.expression ? (
                       <p className="mt-1 break-words text-xs text-slate-300">{normalized.expression}</p>
                     ) : null}
-                    {normalized.details && (compactMode || expanded) ? (
+                    {detailsText && (compactMode || expanded) ? (
                       <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
-                        {normalized.details}
+                        {detailsText}
                       </p>
                     ) : null}
                   </>

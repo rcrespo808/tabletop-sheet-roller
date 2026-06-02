@@ -1,5 +1,10 @@
 import type { RollLogEntry, RollLogEntryKind } from "@/lib/sheets/types";
 
+export function rollLogDetailsToText(details: RollLogEntry["details"]): string | undefined {
+  if (!details) return undefined;
+  return typeof details === "string" ? details : JSON.stringify(details);
+}
+
 export function normalizeRollLogEntry(entry: RollLogEntry): RollLogEntry & { kind: RollLogEntryKind } {
   return {
     ...entry,
@@ -29,7 +34,7 @@ export function entryMatchesSearch(entry: RollLogEntry, query: string): boolean 
     entry.actionLabel,
     entry.expression,
     entry.resultText,
-    entry.details,
+    rollLogDetailsToText(entry.details),
     entry.kind,
     entry.system
   ]
@@ -53,11 +58,12 @@ export function entriesToPlainText(entries: RollLogEntry[]): string {
         .join(" · ")}`;
 
       if (normalized.kind === "note") {
-        return `${header}\n${normalized.details ?? normalized.resultText}`;
+        return `${header}\n${rollLogDetailsToText(normalized.details) ?? normalized.resultText}`;
       }
 
       const lines = [header, `${normalized.expression ?? ""} → ${normalized.resultText}`];
-      if (normalized.details) lines.push(normalized.details);
+      const detailsText = rollLogDetailsToText(normalized.details);
+      if (detailsText) lines.push(detailsText);
       return lines.join("\n");
     })
     .join("\n\n");

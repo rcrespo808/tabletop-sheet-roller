@@ -1,4 +1,4 @@
-import type { GameSystem, RollLogEntry, SheetAction } from "@/lib/sheets/types";
+import type { GameSystem, RollLogEntry, RollLogEntryKind, SheetAction } from "@/lib/sheets/types";
 
 /**
  * Browser-safe Supabase env vars (can be exposed to client bundle).
@@ -75,11 +75,11 @@ export type SupabaseRollLogRow = {
   character_id: string | null;
   character_name: string | null;
   system: GameSystem | null;
-  kind: "roll" | "note" | "system";
+  kind: RollLogEntryKind;
   action_label: string | null;
   expression: string | null;
   result_text: string;
-  details: { text?: string } | string | null;
+  details: Record<string, unknown> | string | null;
   created_at: string;
 };
 
@@ -89,11 +89,11 @@ export type SupabaseRollLogInsert = {
   character_id?: string | null;
   character_name?: string | null;
   system?: GameSystem | null;
-  kind?: "roll" | "note" | "system";
+  kind?: RollLogEntryKind;
   action_label?: string | null;
   expression?: string | null;
   result_text: string;
-  details?: { text?: string } | string | null;
+  details?: Record<string, unknown> | string | null;
   created_at?: string;
 };
 

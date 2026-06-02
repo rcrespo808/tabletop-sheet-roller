@@ -14,6 +14,39 @@ export type CombatTeam = "players" | "enemies" | "allies" | "neutral";
 
 export type CombatantKind = "character" | "npc";
 
+export type CombatEncounterSystem = "dnd5e" | "nwod";
+
+export type CombatantController = {
+  userId?: string;
+  displayName?: string;
+  role: "gm" | "player" | "npc";
+};
+
+export type PendingCombatAction = {
+  id: string;
+  combatantId: string;
+  declaredByUserId?: string;
+  actionId?: string;
+  targetId?: string;
+  note?: string;
+  createdAt: string;
+};
+
+export type CombatLogEntry = {
+  id: string;
+  kind: "combat";
+  round: number;
+  turnIndex: number;
+  actorId?: string;
+  actorName?: string;
+  targetId?: string;
+  targetName?: string;
+  actionLabel?: string;
+  summary: string;
+  details?: Record<string, unknown>;
+  createdAt: string;
+};
+
 export type CombatAction =
   | {
       id: string;
@@ -67,7 +100,7 @@ export type Combatant = {
   kind: CombatantKind;
   sourceId?: string;
   instanceName: string;
-  system: GameSystem;
+  system: CombatEncounterSystem;
   team: CombatTeam;
   initiative: number;
   initiativeRoll?: string;
@@ -83,6 +116,9 @@ export type Combatant = {
   notes?: string;
   combatActions: CombatAction[];
   actions?: SheetAction[];
+  controller?: CombatantController;
+  controlledByUserId?: string | null;
+  isNpc?: boolean;
   metadata?: Record<string, unknown>;
 };
 
@@ -90,11 +126,13 @@ export type CombatEncounter = {
   id: string;
   gameTableId?: string;
   name: string;
-  system?: GameSystem | "mixed";
+  system: CombatEncounterSystem;
   round: number;
   turnIndex: number;
   status: "draft" | "active" | "completed";
   combatants: Combatant[];
+  pendingAction?: PendingCombatAction | null;
+  actionHistory: CombatLogEntry[];
   createdAt?: string;
   updatedAt?: string;
 };

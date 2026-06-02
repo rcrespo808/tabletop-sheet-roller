@@ -5,7 +5,6 @@ import type {
   AbilityKey,
   CharacterProfile,
   Dnd5eStats,
-  GameSystem,
   NwodStats,
   SheetAction
 } from "@/lib/sheets/types";
@@ -15,6 +14,9 @@ import type {
   CombatAction,
   Combatant,
   CombatEncounter,
+  CombatEncounterSystem,
+  CombatLogEntry,
+  PendingCombatAction,
   CombatStatus,
   CombatTeam
 } from "@/lib/combat/types";
@@ -107,7 +109,7 @@ function rollNwodInitiative(initiativeStat: number): { total: number; expression
 
 export function createCombatantFromCharacter(
   character: CharacterProfile,
-  system: GameSystem,
+  system: CombatEncounterSystem,
   team: CombatTeam = "players"
 ): Combatant {
   const sheet = getSystemSheet(character, system);
@@ -122,7 +124,14 @@ export function createCombatantFromCharacter(
     status: "active",
     targetIds: [],
     combatActions: mapSheetActionsToCombatActions(sheet?.actions ?? []),
-    actions: sheet?.actions ?? []
+    actions: sheet?.actions ?? [],
+    controlledByUserId: character.ownerUserId ?? null,
+    isNpc: false,
+    controller: {
+      userId: character.ownerUserId,
+      displayName: character.ownerLabel ?? character.name,
+      role: "player"
+    }
   };
 
   if (sheet && isDnd5eSheet(sheet)) {
@@ -167,6 +176,11 @@ export function createCombatantFromNpcTemplate(
     status: "active",
     targetIds: [],
     combatActions: template.actions,
+    isNpc: true,
+    controlledByUserId: null,
+    controller: {
+      role: "npc"
+    },
     metadata: {
       initiativeBonus: template.initiativeBonus,
       initiativeStat: template.initiative,
@@ -215,7 +229,7 @@ export function startEncounter(encounter: CombatEncounter): CombatEncounter {
   const rolled = encounter.combatants.map((combatant) =>
     combatant.initiativeRoll ? combatant : rollInitiative(combatant)
   );
-  return {
+  const started: CombatEncounter = {
     ...encounter,
     status: "active",
     round: 1,
@@ -223,6 +237,7 @@ export function startEncounter(encounter: CombatEncounter): CombatEncounter {
     combatants: sortCombatantsByInitiative(rolled),
     updatedAt: new Date().toISOString()
   };
+  return appendCombatHistory(started, createTurnStartEntry(started));
 }
 
 export function nextTurn(encounter: CombatEncounter): CombatEncounter {
@@ -247,12 +262,13 @@ export function nextTurn(encounter: CombatEncounter): CombatEncounter {
     safety += 1;
   }
 
-  return {
+  const next = {
     ...encounter,
     turnIndex,
     round,
     updatedAt: new Date().toISOString()
   };
+  return appendCombatHistory(next, createTurnStartEntry(next));
 }
 
 export function previousTurn(encounter: CombatEncounter): CombatEncounter {
@@ -277,12 +293,13 @@ export function previousTurn(encounter: CombatEncounter): CombatEncounter {
     safety += 1;
   }
 
-  return {
+  const previous = {
     ...encounter,
     turnIndex,
     round,
     updatedAt: new Date().toISOString()
   };
+  return appendCombatHistory(previous, createTurnStartEntry(previous));
 }
 
 export function applyDamage(combatant: Combatant, amount: number): Combatant {
@@ -383,7 +400,114 @@ export function updateCombatant(
   };
 }
 
-export function createEncounter(name: string, system?: GameSystem | "mixed"): CombatEncounter {
+export function makeCombatLogEntry(
+  encounter: CombatEncounter,
+  input: Omit<CombatLogEntry, "id" | "kind" | "round" | "turnIndex" | "createdAt">
+): CombatLogEntry {
+  return {
+    id: newCombatantId(),
+    kind: "combat",
+    round: encounter.round,
+    turnIndex: encounter.turnIndex,
+    createdAt: new Date().toISOString(),
+    ...input
+  };
+}
+
+export function appendCombatHistory(
+  encounter: CombatEncounter,
+  entry: CombatLogEntry | null | undefined
+): CombatEncounter {
+  if (!entry) return encounter;
+  return {
+    ...encounter,
+    actionHistory: [entry, ...(encounter.actionHistory ?? [])].slice(0, 200),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+export function createTurnStartEntry(encounter: CombatEncounter): CombatLogEntry | null {
+  const active = encounter.combatants[encounter.turnIndex];
+  if (!active) return null;
+  return makeCombatLogEntry(encounter, {
+    actorId: active.id,
+    actorName: active.instanceName,
+    summary: `Round ${encounter.round}: ${active.instanceName}'s turn begins.`,
+    details: {
+      resultType: "turn_start",
+      system: encounter.system,
+      combatantId: active.id,
+      combatantName: active.instanceName
+    }
+  });
+}
+
+export function setActiveTurn(encounter: CombatEncounter, combatantId: string): CombatEncounter {
+  const index = encounter.combatants.findIndex((combatant) => combatant.id === combatantId);
+  if (index < 0) return encounter;
+  const next = {
+    ...encounter,
+    turnIndex: index,
+    updatedAt: new Date().toISOString()
+  };
+  return appendCombatHistory(next, createTurnStartEntry(next));
+}
+
+export function declarePendingAction(
+  encounter: CombatEncounter,
+  pendingAction: Omit<PendingCombatAction, "id" | "createdAt">
+): CombatEncounter {
+  const nextPendingAction: PendingCombatAction = {
+    id: newCombatantId(),
+    createdAt: new Date().toISOString(),
+    ...pendingAction
+  };
+  const actor = encounter.combatants.find((combatant) => combatant.id === nextPendingAction.combatantId);
+  const target = encounter.combatants.find((combatant) => combatant.id === nextPendingAction.targetId);
+  const action = actor?.combatActions.find((entry) => entry.id === nextPendingAction.actionId);
+  const summary = `${actor?.instanceName ?? "Combatant"} declared ${action?.label ?? "an action"}${
+    target ? ` targeting ${target.instanceName}` : ""
+  }.`;
+  return appendCombatHistory(
+    {
+      ...encounter,
+      pendingAction: nextPendingAction,
+      updatedAt: new Date().toISOString()
+    },
+    makeCombatLogEntry(encounter, {
+      actorId: actor?.id,
+      actorName: actor?.instanceName,
+      targetId: target?.id,
+      targetName: target?.instanceName,
+      actionLabel: action?.label,
+      summary,
+      details: {
+        resultType: "action_declared",
+        system: encounter.system,
+        pendingActionId: nextPendingAction.id
+      }
+    })
+  );
+}
+
+export function clearPendingAction(encounter: CombatEncounter, summary = "Pending action cleared."): CombatEncounter {
+  return appendCombatHistory(
+    {
+      ...encounter,
+      pendingAction: null,
+      updatedAt: new Date().toISOString()
+    },
+    makeCombatLogEntry(encounter, {
+      summary,
+      details: {
+        resultType: "action_cancelled",
+        system: encounter.system
+      }
+    })
+  );
+}
+
+export function createEncounter(name: string, system: CombatEncounterSystem): CombatEncounter {
   const now = new Date().toISOString();
   return {
     id: newCombatantId(),
@@ -393,6 +517,8 @@ export function createEncounter(name: string, system?: GameSystem | "mixed"): Co
     turnIndex: 0,
     status: "draft",
     combatants: [],
+    pendingAction: null,
+    actionHistory: [],
     createdAt: now,
     updatedAt: now
   };
