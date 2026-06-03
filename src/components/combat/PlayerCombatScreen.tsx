@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
+import { PlayerTurnBar } from "@/components/combat/PlayerTurnBar";
 import { RpgCombatShell } from "@/components/combat/rpgm/RpgCombatShell";
 import { GlassPanel } from "@/components/GlassPanel";
 import type { BuiltinCommandId } from "@/lib/combat/rpgmActionCatalog";
@@ -17,8 +18,10 @@ export function PlayerCombatScreen({
   onDeclareAction,
   onDeclareBuiltIn,
   onRefresh,
+  onEndTurn,
   onSelectedTargetIdChange,
   ownedCombatants,
+  canEndTurn,
   recentResult,
   selectedTargetId,
   validTargets,
@@ -32,7 +35,9 @@ export function PlayerCombatScreen({
   onDeclareAction: (actionId: string, targetId?: string | null) => void | Promise<void>;
   onDeclareBuiltIn: (command: BuiltinCommandId, targetId?: string | null) => void | Promise<void>;
   onRefresh: () => void | Promise<void>;
+  onEndTurn: () => void | Promise<void>;
   onSelectedTargetIdChange: (value: string) => void;
+  canEndTurn: boolean;
   ownedCombatants: Combatant[];
   recentResult?: RpgRecentResult | null;
   selectedTargetId: string;
@@ -80,6 +85,13 @@ export function PlayerCombatScreen({
           </div>
         </div>
       </GlassPanel>
+
+      <PlayerTurnBar
+        activeName={activeCombatant?.instanceName}
+        canEndTurn={canEndTurn}
+        encounterActive={encounter.status === "active"}
+        onEndTurn={onEndTurn}
+      />
 
       <RpgCombatShell
         activeCombatant={activeCombatant}

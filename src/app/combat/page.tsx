@@ -23,6 +23,7 @@ import { GlassPanel } from "@/components/GlassPanel";
 import { RollLog } from "@/components/RollLog";
 import { StorageStatusBadge } from "@/components/StorageStatusBadge";
 import {
+  advanceEncounterTurn,
   applyDamage,
   applyHealing,
   clearPendingAction,
@@ -32,7 +33,6 @@ import {
   declarePendingAction,
   getValidTargets,
   makeCombatLogEntry,
-  nextTurn,
   previousTurn,
   setCombatantStatus,
   startEncounter,
@@ -109,16 +109,33 @@ function isGm(authState: AuthState | null): boolean {
   return authState?.profile?.userLevel === "gm";
 }
 
+/** GM tools or local encounter editing without Supabase GM profile. */
+function canManageCombat(authState: AuthState | null): boolean {
+  if (isGm(authState)) return true;
+  const mode = getCombatStorageMode();
+  return mode === "local" || mode === "supabase-fallback";
+}
+
 function isPlayerControlledByCurrentUser(
   combatant: Combatant | null,
   authState: AuthState | null
 ): boolean {
-  return Boolean(
-    combatant &&
-      authState?.user?.id &&
-      combatant.controlledByUserId &&
-      combatant.controlledByUserId === authState.user.id
-  );
+  if (!combatant) return false;
+  if (authState?.user?.id && combatant.controlledByUserId) {
+    return combatant.controlledByUserId === authState.user.id;
+  }
+  return !authState?.user?.id && combatant.team === "players";
+}
+
+function turnControlsDisabledReason(
+  encounter: CombatEncounter | null,
+  canManage: boolean
+): string | undefined {
+  if (!encounter) return "Select an encounter in Setup.";
+  if (!canManage) return "Sign in as GM or use local storage to control turns.";
+  if (encounter.status === "draft") return "Start the encounter before advancing turns.";
+  if (encounter.status === "completed") return "This encounter has ended.";
+  return undefined;
 }
 
 function combatHistoryEntryToRollLogEntry(
@@ -562,9 +579,45 @@ export default function CombatPage() {
     await persistEncounter(cleared, { logNewHistoryFrom: activeEncounter });
   }
 
-  async function handleAdvanceTurn() {
-    if (!activeEncounter || !gmUser) return;
-    await persistEncounter(nextTurn(activeEncounter), { logNewHistoryFrom: activeEncounter });
+  async function handleAdvanceTurn(options?: { passActor?: Combatant | null }) {
+    if (!activeEncounter || activeEncounter.status !== "active") return;
+
+    let nextEncounter = activeEncounter;
+    const passActor = options?.passActor;
+    if (passActor) {
+      nextEncounter = appendCombatHistory(
+        nextEncounter,
+        makeCombatLogEntry(nextEncounter, {
+          actorId: passActor.id,
+          actorName: passActor.instanceName,
+          summary: `${passActor.instanceName} ended their turn.`,
+          details: {
+            resultType: "turn_passed",
+            system: activeEncounter.system,
+            combatantId: passActor.id
+          }
+        })
+      );
+    }
+
+    const advanced = advanceEncounterTurn(nextEncounter);
+    setSelectedTargetId("");
+    setShowResolvedFeedback(false);
+    if (passActor) {
+      setActionStatus(
+        createCombatActionStatus(
+          "resolved",
+          `${passActor.instanceName} passed. It is now the next combatant's turn.`
+        )
+      );
+    }
+    await persistEncounter(advanced, { logNewHistoryFrom: activeEncounter });
+  }
+
+  async function handlePlayerEndTurn() {
+    if (!activeEncounter || !currentCombatant) return;
+    if (!isPlayerControlledByCurrentUser(currentCombatant, authState)) return;
+    await handleAdvanceTurn({ passActor: currentCombatant });
   }
 
   async function handleResolveCurrentAction(actionId: string) {
@@ -689,7 +742,15 @@ export default function CombatPage() {
       ? getValidTargets(activeEncounter, currentCombatant, { showAll: showAllTargets })
       : [];
   const gmUser = isGm(authState);
+  const canManageCombatSession = canManageCombat(authState);
   const activeOwnedByUser = isPlayerControlledByCurrentUser(currentCombatant, authState);
+  const canPlayerEndTurn = Boolean(
+    activeEncounter?.status === "active" && currentCombatant && activeOwnedByUser
+  );
+  const gmTurnDisabledReason = turnControlsDisabledReason(
+    activeEncounter,
+    canManageCombatSession
+  );
   const playerOwnedCombatants =
     activeEncounter?.combatants.filter((combatant) =>
       authState?.user?.id
@@ -849,15 +910,13 @@ export default function CombatPage() {
         {activeEncounter && combatMode !== "player" ? (
           <CombatModeContent mode={combatMode}>
             <EncounterHeader
-              canManage={gmUser}
+              canManage={canManageCombatSession}
               currentName={currentCombatant?.instanceName}
               encounter={activeEncounter}
               onEnd={async () =>
                 persistEncounter({ ...activeEncounter, status: "completed" })
               }
-              onNext={async () =>
-                persistEncounter(nextTurn(activeEncounter), { logNewHistoryFrom: activeEncounter })
-              }
+              onNext={async () => void handleAdvanceTurn()}
               onPrevious={async () =>
                 persistEncounter(previousTurn(activeEncounter), { logNewHistoryFrom: activeEncounter })
               }
@@ -871,8 +930,9 @@ export default function CombatPage() {
               <GmCombatScreen
                 actionStatus={actionStatus}
                 activeCombatant={currentCombatant}
-                canManage={gmUser}
+                canManage={canManageCombatSession}
                 encounter={activeEncounter}
+                turnControlsDisabledReason={gmTurnDisabledReason}
                 flowPhase={combatFlowPhase}
                 onClearPendingAction={handleClearPendingAction}
                 onDamage={handleManualDamage}
@@ -1007,10 +1067,12 @@ export default function CombatPage() {
             <PlayerCombatScreen
               activeCombatant={currentCombatant}
               canDeclare={activeOwnedByUser && !gmUser}
+              canEndTurn={canPlayerEndTurn}
               currentUserId={authState?.user?.id}
               encounter={activeEncounter}
               onDeclareAction={handleDeclareCurrentAction}
               onDeclareBuiltIn={handleDeclareBuiltIn}
+              onEndTurn={handlePlayerEndTurn}
               onRefresh={refresh}
               actionStatus={actionStatus}
               flowPhase={combatFlowPhase}

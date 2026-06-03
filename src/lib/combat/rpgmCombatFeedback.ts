@@ -156,7 +156,7 @@ export function formatCombatMessageLine(
   const damage = feedback?.damageApplied;
 
   let tone: CombatMessageLine["tone"] = "neutral";
-  if (resultType === "turn_start") tone = "turn";
+  if (resultType === "turn_start" || resultType === "turn_passed") tone = "turn";
   else if (resultType === "action_declared" || resultType === "action_cancelled") tone = "declare";
   else if (resultType === "healing") tone = "healing";
   else if (resultType === "attack_miss" || (resultType === "attack_hit" && damage === 0)) {

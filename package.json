@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "npx tsx --test src/lib/sheets/sheetActionCombat.test.ts src/lib/combat/resolveCombatAction.test.ts",
+    "test": "npx tsx --test src/lib/sheets/sheetActionCombat.test.ts src/lib/combat/resolveCombatAction.test.ts src/lib/combat/combatEngine.turn.test.ts",
     "test:combat": "npm run test"
   },
   "dependencies": {

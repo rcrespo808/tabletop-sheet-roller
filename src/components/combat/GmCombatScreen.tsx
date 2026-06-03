@@ -41,7 +41,8 @@ export function GmCombatScreen({
   onHeal,
   onStatus,
   onOpenCombatLog,
-  canManage = true
+  canManage = true,
+  turnControlsDisabledReason
 }: {
   encounter: CombatEncounter;
   activeCombatant: Combatant | null;
@@ -67,6 +68,7 @@ export function GmCombatScreen({
   onStatus: (combatantId: string, status: CombatStatus) => void | Promise<void>;
   onOpenCombatLog: () => void;
   canManage?: boolean;
+  turnControlsDisabledReason?: string;
 }) {
   const [rosterOpen, setRosterOpen] = useState(true);
 
@@ -94,6 +96,7 @@ export function GmCombatScreen({
       <GmTurnToolbar
         activeName={activeCombatant?.instanceName}
         disabled={!canManage || encounter.status !== "active"}
+        disabledReason={turnControlsDisabledReason}
         onEndTurn={onEndTurn}
         onNextTurn={onNextTurn}
         round={encounter.round}

@@ -7,13 +7,15 @@ export function GmTurnToolbar({
   round,
   onEndTurn,
   onNextTurn,
-  disabled
+  disabled,
+  disabledReason
 }: {
   activeName?: string;
   round: number;
   onEndTurn: () => void | Promise<void>;
   onNextTurn: () => void | Promise<void>;
   disabled?: boolean;
+  disabledReason?: string;
 }) {
   return (
     <GlassPanel level="secondary" className="p-4 sm:p-5">
@@ -44,6 +46,9 @@ export function GmTurnToolbar({
           </button>
         </div>
       </div>
+      {disabled && disabledReason ? (
+        <p className="mt-3 text-xs text-amber-100">{disabledReason}</p>
+      ) : null}
     </GlassPanel>
   );
 }

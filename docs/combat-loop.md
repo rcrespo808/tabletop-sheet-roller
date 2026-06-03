@@ -24,6 +24,10 @@ GM mode uses the same RPGM shell as players (`RpgCombatShell` + `CommandMenu` in
 
 Select target → **Resolve** on an attack, or **Resolve pending** when a player declaration exists.
 
+Turn controls require an **active** encounter (use **Start Encounter** in the header while in draft). **End Turn** / **Next Turn** advance initiative and clear stale pending actions.
+
+Players use **End My Turn** on the Player tab when it is their combatant's initiative; this logs the pass and advances to the next combatant (same as GM end turn).
+
 ## Combat log
 
 Header **Combat Log** opens a side drawer with full `actionHistory` (newest first). GM mode still shows a short inline preview with “Open full log”.

@@ -421,6 +421,13 @@ export function declarePendingAction(
   );
 }
 
+/** Advance initiative and clear any stale pending action. */
+export function advanceEncounterTurn(encounter: CombatEncounter): CombatEncounter {
+  const advanced = nextTurn(encounter);
+  if (!advanced.pendingAction) return advanced;
+  return clearPendingAction(advanced, "Turn advanced; pending action cleared.");
+}
+
 export function clearPendingAction(encounter: CombatEncounter, summary = "Pending action cleared."): CombatEncounter {
   return appendCombatHistory(
     {
