@@ -26,7 +26,7 @@ payload="$(jq -n \
       "http://127.0.0.1:3000/auth/confirm",
       "https://127.0.0.1:3000/auth/confirm",
       "https://*-*.vercel.app/auth/confirm"
-    ] | join("\n")
+    ] | join(",")
   }')"
 
 echo "Syncing Supabase auth config for project ${SUPABASE_PROJECT_ID}"
