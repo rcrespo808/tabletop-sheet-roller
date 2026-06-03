@@ -81,7 +81,8 @@ export const reverendOfRatsProfile: CharacterProfile = {
           notes:
             "The Reverend dissolves into a coordinated swarm. Excellent for infiltration, escape, surveillance, and overwhelming enclosed spaces. Individual rats may scout through cracks, vents, pipes, and reliquary holes.",
           source: "custom",
-          hotspot: { x: 50, y: 18, icon: "rat" }
+          hotspot: { x: 50, y: 18, icon: "rat" },
+          metadata: { combatCategory: "power" }
         },
         {
           id: "nwod-many-eyes-sermon",
@@ -93,7 +94,8 @@ export const reverendOfRatsProfile: CharacterProfile = {
           again: 10,
           rote: true,
           notes: "Process dozens of rat-scout sensory streams in parallel.",
-          source: "custom"
+          source: "custom",
+          metadata: { combatCategory: "skill" }
         },
         {
           id: "nwod-vesper-plague",
@@ -105,7 +107,8 @@ export const reverendOfRatsProfile: CharacterProfile = {
           again: 10,
           rote: false,
           notes: "Prepare, identify, or weaponize disease vectors carried by the swarm.",
-          source: "custom"
+          source: "custom",
+          metadata: { combatCategory: "power" }
         },
         {
           id: "nwod-rat-in-the-walls",
@@ -118,7 +121,25 @@ export const reverendOfRatsProfile: CharacterProfile = {
           rote: false,
           notes:
             "Infiltrate through impossible gaps, drains, attics, confessionals, and rotten chapel wood.",
-          source: "custom"
+          source: "custom",
+          metadata: { combatCategory: "skill" }
+        },
+        {
+          id: "nwod-congregation-bite",
+          type: "nwod-check",
+          label: "Congregation Bite",
+          attribute: "dexterity",
+          skill: "brawl",
+          modifier: 2,
+          again: 9,
+          rote: false,
+          notes: "Swarm teeth and claws in close quarters.",
+          source: "custom",
+          metadata: {
+            combatKind: "attack",
+            combatCategory: "fight",
+            damage: 2
+          }
         },
         {
           id: "nwod-splintered-flesh",
@@ -129,7 +150,8 @@ export const reverendOfRatsProfile: CharacterProfile = {
           rote: false,
           notes:
             "Partially transform a hand, eye, tongue, or wound into individual rats for scouting, sabotage, or escape.",
-          source: "custom"
+          source: "custom",
+          metadata: { combatCategory: "power" }
         },
         {
           id: "nwod-vermin-gospel",
@@ -141,7 +163,8 @@ export const reverendOfRatsProfile: CharacterProfile = {
           again: 10,
           rote: true,
           notes: "Command rats as informants, thieves, witnesses, and congregation.",
-          source: "custom"
+          source: "custom",
+          metadata: { combatCategory: "power" }
         },
         {
           id: "nwod-abandoned-church",
@@ -149,7 +172,8 @@ export const reverendOfRatsProfile: CharacterProfile = {
           label: "Hideout: The Rat Chapel",
           notes:
             "An abandoned church crudely restored with stolen pews, wax-dripped icons, patched roofs, hidden tunnels, and rat-holes behind every saint. It is half sanctuary, half intelligence nest.",
-          source: "custom"
+          source: "custom",
+          metadata: { combatCategory: "note" }
         }
       ]
     },
@@ -212,24 +236,23 @@ export const reverendOfRatsProfile: CharacterProfile = {
           notes:
             "Custom druidic transformation. Become a swarm of rats instead of a beast. Ideal for infiltration, escape, scouting, occupying enemy spaces, and slipping through cracks.",
           source: "custom",
-          hotspot: { x: 48, y: 20, icon: "rat" }
+          hotspot: { x: 48, y: 20, icon: "rat" },
+          metadata: { combatCategory: "power" }
         },
         {
           id: "dnd-bite-of-the-congregation",
           type: "dnd-roll",
           label: "Bite of the Congregation",
           roll: "1d20+9",
-          notes:
-            "Spell or swarm attack roll. On hit, follow with disease or necrotic swarm damage if prepared.",
-          source: "custom"
-        },
-        {
-          id: "dnd-swarm-damage",
-          type: "dnd-roll",
-          label: "Swarm Damage",
-          roll: "4d6+5",
-          notes: "Piercing/necrotic damage from a coordinated rat swarm.",
-          source: "custom"
+          notes: "Swarm attack. On hit, deal piercing/necrotic swarm damage.",
+          source: "custom",
+          metadata: {
+            combatKind: "attack",
+            combatCategory: "fight",
+            attackRoll: "1d20+9",
+            damageRoll: "4d6+5",
+            damageType: "piercing"
+          }
         },
         {
           id: "dnd-vesper-plague-save",
@@ -237,7 +260,8 @@ export const reverendOfRatsProfile: CharacterProfile = {
           label: "Vesper Plague",
           notes:
             "Enemies in the swarm or infected area make a CON save against Spell Save DC 17. Suggested failure: poisoned, reduced speed, or unable to regain hit points until end of next turn.",
-          source: "custom"
+          source: "custom",
+          metadata: { combatCategory: "power" }
         },
         {
           id: "dnd-many-eyes-sermon",
@@ -247,7 +271,8 @@ export const reverendOfRatsProfile: CharacterProfile = {
           skill: "perception",
           modifier: 2,
           notes: "Use rat scouts and parallel beast-mind processing to gather information.",
-          source: "custom"
+          source: "custom",
+          metadata: { combatCategory: "skill" }
         },
         {
           id: "dnd-rat-in-the-walls",
@@ -257,7 +282,8 @@ export const reverendOfRatsProfile: CharacterProfile = {
           skill: "stealth",
           modifier: 2,
           notes: "Infiltration through vents, cracks, tunnels, drains, and ruined masonry.",
-          source: "custom"
+          source: "custom",
+          metadata: { combatCategory: "skill" }
         },
         {
           id: "dnd-splintered-flesh",
@@ -265,7 +291,8 @@ export const reverendOfRatsProfile: CharacterProfile = {
           label: "Splintered Flesh",
           notes:
             "Partial transformation: an eye, finger, wound, or tongue becomes a rat. Use for scouting, carrying messages, stealing keys, chewing bindings, or seeing beyond walls.",
-          source: "custom"
+          source: "custom",
+          metadata: { combatCategory: "power" }
         },
         {
           id: "dnd-rat-chapel",
@@ -273,7 +300,8 @@ export const reverendOfRatsProfile: CharacterProfile = {
           label: "Lair: The Rat Chapel",
           notes:
             "An abandoned church sloppily restored into a vermin sanctuary. Hidden tunnels, diseased reliquaries, rat nests behind icons, and stolen confession ledgers form his base of operations.",
-          source: "custom"
+          source: "custom",
+          metadata: { combatCategory: "note" }
         }
       ]
     }

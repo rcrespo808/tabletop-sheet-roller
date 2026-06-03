@@ -11,6 +11,7 @@ import type {
   SystemSheet
 } from "@/lib/sheets/types";
 import { normalizeInventory } from "@/lib/sheets/inventory";
+import { migrateCharacterForCombat } from "@/lib/sheets/sheetActionCombat";
 
 const STORAGE_KEY_V2 = "tsr.customCharacters.v2";
 const STORAGE_KEY_V1 = "tsr.customCharacters.v1";
@@ -120,7 +121,7 @@ export function normalizeCharacterProfile(profile: CharacterProfile): CharacterP
     };
   }
 
-  return {
+  const normalized: CharacterProfile = {
     ...profile,
     id: profile.id.trim(),
     ownerUserId: profile.ownerUserId,
@@ -144,6 +145,8 @@ export function normalizeCharacterProfile(profile: CharacterProfile): CharacterP
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt
   };
+
+  return migrateCharacterForCombat(normalized);
 }
 
 function isGameSystem(value: unknown): value is GameSystem {

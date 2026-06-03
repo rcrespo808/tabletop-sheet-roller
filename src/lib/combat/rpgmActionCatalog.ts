@@ -1,5 +1,6 @@
 import type { CombatAction } from "@/lib/combat/types";
 import type { RpgCommandId } from "@/lib/combat/rpgmDisplay";
+import { normalizeCombatActionCategory } from "@/lib/sheets/sheetActionCombat";
 
 export type BuiltinCommandId = "defend" | "wait" | "flee";
 
@@ -47,7 +48,10 @@ const METADATA_CATEGORY_ALIASES: Record<string, RpgCommandId> = {
   items: "items",
   utility: "powers",
   note: "skills",
-  notes: "skills"
+  notes: "skills",
+  defend: "defend",
+  wait: "wait",
+  flee: "flee"
 };
 
 function isItemPowerAction(action: CombatAction): boolean {
@@ -65,6 +69,18 @@ function isSkillUtilityAction(action: CombatAction): boolean {
 
 export function getActionCategory(action: CombatAction): RpgCommandId | null {
   const raw = action.metadata?.combatCategory;
+  const fromSheet = normalizeCombatActionCategory(raw);
+  if (fromSheet) {
+    if (fromSheet === "defend" || fromSheet === "wait" || fromSheet === "flee") {
+      return fromSheet;
+    }
+    if (fromSheet === "spell") return "powers";
+    if (fromSheet === "note") return "skills";
+    if (fromSheet === "item") return "items";
+    if (fromSheet === "fight") return "fight";
+    if (fromSheet === "skill") return "skills";
+    if (fromSheet === "power" || fromSheet === "utility") return "powers";
+  }
   if (typeof raw === "string") {
     const normalized = raw.trim().toLowerCase();
     if (normalized in METADATA_CATEGORY_ALIASES) {

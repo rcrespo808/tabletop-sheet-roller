@@ -57,14 +57,15 @@ export const characterProfiles: CharacterProfile[] = [
             type: "dnd-roll",
             label: "Rapier Attack",
             roll: "1d20+8",
-            source: "custom"
-          },
-          {
-            id: "dnd-rapier-damage",
-            type: "dnd-roll",
-            label: "Rapier Damage",
-            roll: "1d8+2",
-            source: "custom"
+            notes: "On hit, deal 1d8+2 piercing damage.",
+            source: "custom",
+            metadata: {
+              combatKind: "attack",
+              combatCategory: "fight",
+              attackRoll: "1d20+8",
+              damageRoll: "1d8+2",
+              damageType: "piercing"
+            }
           },
           {
             id: "dnd-resonance-check",

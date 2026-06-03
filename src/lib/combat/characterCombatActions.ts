@@ -1,4 +1,5 @@
 import { getSystemSheet } from "@/data/characters";
+import { migrateCharacterForCombat } from "@/lib/sheets/sheetActionCombat";
 import type {
   CharacterProfile,
   InventoryItem,
@@ -177,11 +178,12 @@ export function getCombatActionsFromCharacter(
   character: CharacterProfile,
   system: CombatEncounterSystem
 ): CombatAction[] {
-  const sheet = getSystemSheet(character, system);
+  const migrated = migrateCharacterForCombat(character);
+  const sheet = getSystemSheet(migrated, system);
   if (!sheet) return [];
 
   return [
     ...getCombatActionsFromSheetActions(sheet.actions ?? [], system),
-    ...getCombatActionsFromInventory(character, system)
+    ...getCombatActionsFromInventory(migrated, system)
   ];
 }
