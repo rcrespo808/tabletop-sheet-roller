@@ -1,0 +1,235 @@
+import type { CharacterProfile } from "@/lib/sheets/types";
+
+export const characterImportTemplate: CharacterProfile = {
+  id: "combat-ready-example",
+  ownerLabel: "Player or NPC label",
+  characterKind: "player_character",
+  name: "Combat Ready Example",
+  subtitle: "Imported combat-ready sheet",
+  concept: "A complete import template for gallery, sheets, inventory powers, rewards, and combat.",
+  portraitImage: "/characters/combat-ready-example/portrait.png",
+  defaultSystem: "dnd5e",
+  inventory: [
+    {
+      id: "item-example-maul",
+      name: "Example Maul",
+      quantity: 1,
+      equipped: true,
+      rarity: "common",
+      notes: "A sample item with a combat-ready power.",
+      tags: ["weapon"],
+      powers: [
+        {
+          id: "power-example-maul-strike",
+          label: "Maul Strike",
+          description: "Make a heavy melee attack with the item.",
+          charges: {
+            current: 1,
+            max: 1,
+            reset: "short_rest"
+          },
+          consumesItem: false,
+          action: {
+            id: "action-example-maul-strike",
+            type: "dnd-roll",
+            label: "Maul Strike",
+            roll: "1d20+6",
+            notes: "On hit, deal 1d6+3 bludgeoning damage.",
+            source: "custom",
+            metadata: {
+              combatKind: "attack",
+              combatCategory: "item",
+              attackRoll: "1d20+6",
+              damageRoll: "1d6+3",
+              damageType: "bludgeoning"
+            }
+          }
+        }
+      ],
+      metadata: {}
+    }
+  ],
+  wallet: {
+    gp: 0,
+    sp: 0,
+    cp: 0,
+    xp: 0,
+    custom: {}
+  },
+  rewardHistory: [],
+  progression: {
+    level: 1,
+    xp: 0,
+    milestones: []
+  },
+  conditions: [],
+  sheets: {
+    dnd5e: {
+      system: "dnd5e",
+      label: "D&D 5e",
+      levelLabel: "Level 1 Fighter",
+      sheetImage: "/characters/combat-ready-example/dnd-sheet.png",
+      metadata: {
+        class: "Fighter",
+        role: "Sample combatant"
+      },
+      attributes: {
+        str: 16,
+        dex: 14,
+        con: 14,
+        int: 10,
+        wis: 12,
+        cha: 10
+      },
+      stats: {
+        level: 1,
+        proficiencyBonus: 2,
+        armorClass: 16,
+        initiativeBonus: 2,
+        speed: 30,
+        maxHp: 12,
+        currentHp: 12,
+        spellSaveDc: undefined,
+        spellAttackBonus: undefined,
+        saveProficiencies: {
+          str: true,
+          con: true
+        }
+      },
+      skills: {
+        athletics: { ability: "str", proficient: true },
+        insight: { ability: "wis" },
+        intimidation: { ability: "cha", proficient: true },
+        perception: { ability: "wis", proficient: true }
+      },
+      actions: [
+        {
+          id: "dnd-example-attack",
+          type: "dnd-roll",
+          label: "Example Attack",
+          roll: "1d20+6",
+          notes: "On hit, deal 1d8+3 bludgeoning damage.",
+          source: "custom",
+          metadata: {
+            combatKind: "attack",
+            combatCategory: "fight",
+            attackRoll: "1d20+6",
+            damageRoll: "1d8+3",
+            damageType: "bludgeoning"
+          }
+        },
+        {
+          id: "dnd-example-skill",
+          type: "dnd-check",
+          label: "Example Skill",
+          ability: "wis",
+          skill: "insight",
+          modifier: 0,
+          notes: "Roll-only combat utility.",
+          source: "custom",
+          metadata: {
+            combatCategory: "skill"
+          }
+        },
+        {
+          id: "dnd-example-power-note",
+          type: "note",
+          label: "Example Power",
+          notes: "A note-style power or rules reminder available in combat.",
+          source: "custom",
+          metadata: {
+            combatCategory: "power"
+          }
+        }
+      ]
+    },
+    nwod: {
+      system: "nwod",
+      label: "NWoD",
+      levelLabel: "Mortal / Template",
+      sheetImage: "/characters/combat-ready-example/nwod-sheet.png",
+      metadata: {
+        template: "Chronicles of Darkness",
+        role: "Sample combatant"
+      },
+      attributes: {
+        intelligence: 2,
+        wits: 3,
+        resolve: 2,
+        strength: 3,
+        dexterity: 2,
+        stamina: 3,
+        presence: 2,
+        manipulation: 2,
+        composure: 3
+      },
+      stats: {
+        willpower: 5,
+        maxWillpower: 5,
+        health: 8,
+        maxHealth: 8,
+        defense: 2,
+        speed: 10,
+        initiative: 5,
+        armor: 0,
+        morality: 7
+      },
+      skills: {
+        athletics: 2,
+        brawl: 2,
+        empathy: 1,
+        investigation: 2,
+        occult: 1,
+        stealth: 1,
+        streetwise: 1,
+        subterfuge: 1
+      },
+      actions: [
+        {
+          id: "nwod-example-attack",
+          type: "nwod-check",
+          label: "Example Attack",
+          attribute: "strength",
+          skill: "brawl",
+          modifier: 1,
+          again: 10,
+          rote: false,
+          notes: "Close combat attack.",
+          source: "custom",
+          metadata: {
+            combatKind: "attack",
+            combatCategory: "fight",
+            damage: 1
+          }
+        },
+        {
+          id: "nwod-example-utility",
+          type: "nwod-check",
+          label: "Example Utility",
+          attribute: "wits",
+          skill: "investigation",
+          modifier: 0,
+          again: 10,
+          rote: false,
+          notes: "Roll-only utility.",
+          source: "custom",
+          metadata: {
+            combatCategory: "skill"
+          }
+        },
+        {
+          id: "nwod-example-power-note",
+          type: "note",
+          label: "Example Power",
+          notes: "A note-style power or rules reminder available in combat.",
+          source: "custom",
+          metadata: {
+            combatCategory: "power"
+          }
+        }
+      ]
+    }
+  }
+};
+
+export const characterImportTemplateJson = JSON.stringify(characterImportTemplate, null, 2);

@@ -2,6 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { useMemo, useState } from "react";
+import { characterImportTemplateJson } from "@/data/characterImportTemplate";
 import type { CharacterKind, CharacterProfile, GameSystem } from "@/lib/sheets/types";
 import { parseCharacterProfile } from "@/lib/sheets/customCharacters";
 import { applyImageToProfile } from "@/lib/storage/characterImages";
@@ -13,24 +14,6 @@ type CreateCharacterPanelProps = {
   onAdd: (profile: CharacterProfile) => Promise<void> | void;
 };
 
-const starterJson = `{
-  "id": "new-hero",
-  "name": "New Hero",
-  "subtitle": "Imported Sheet",
-  "defaultSystem": "dnd5e",
-  "portraitImage": "/characters/he-zhen/sheet.png",
-  "sheets": {
-    "dnd5e": {
-      "system": "dnd5e",
-      "label": "D&D 5e",
-      "sheetImage": "/characters/he-zhen/sheet.png",
-      "actions": [
-        { "id": "attack", "type": "dnd-roll", "label": "Attack", "roll": "1d20+5" }
-      ]
-    }
-  }
-}`;
-
 export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
   const [id, setId] = useState("");
   const [name, setName] = useState("");
@@ -38,7 +21,7 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
   const [characterKind, setCharacterKind] = useState<CharacterKind>("player_character");
   const [portraitImage, setPortraitImage] = useState<string | undefined>();
   const [sheetImage, setSheetImage] = useState<string | undefined>();
-  const [json, setJson] = useState(starterJson);
+  const [json, setJson] = useState(characterImportTemplateJson);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 

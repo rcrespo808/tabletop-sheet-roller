@@ -1,115 +1,157 @@
 {
-  "id": "your-character-id",
-  "name": "Character Name",
-  "subtitle": "Short tagline or class/concept line",
-  "concept": "One-line concept for the gallery.",
-  "ownerLabel": "Optional table or player label",
+  "id": "combat-ready-example",
+  "ownerLabel": "Player or NPC label",
+  "characterKind": "player_character",
+  "name": "Combat Ready Example",
+  "subtitle": "Imported combat-ready sheet",
+  "concept": "A complete import template for gallery, sheets, inventory powers, rewards, and combat.",
+  "portraitImage": "/characters/combat-ready-example/portrait.png",
   "defaultSystem": "dnd5e",
-  "portraitImage": "/characters/your-character-id/portrait.png",
+  "inventory": [
+    {
+      "id": "item-example-maul",
+      "name": "Example Maul",
+      "quantity": 1,
+      "equipped": true,
+      "rarity": "common",
+      "notes": "A sample item with a combat-ready power.",
+      "tags": ["weapon"],
+      "powers": [
+        {
+          "id": "power-example-maul-strike",
+          "label": "Maul Strike",
+          "description": "Make a heavy melee attack with the item.",
+          "charges": {
+            "current": 1,
+            "max": 1,
+            "reset": "short_rest"
+          },
+          "consumesItem": false,
+          "action": {
+            "id": "action-example-maul-strike",
+            "type": "dnd-roll",
+            "label": "Maul Strike",
+            "roll": "1d20+6",
+            "notes": "On hit, deal 1d6+3 bludgeoning damage.",
+            "source": "custom",
+            "metadata": {
+              "combatKind": "attack",
+              "combatCategory": "item",
+              "attackRoll": "1d20+6",
+              "damageRoll": "1d6+3",
+              "damageType": "bludgeoning"
+            }
+          }
+        }
+      ],
+      "metadata": {}
+    }
+  ],
+  "wallet": {
+    "gp": 0,
+    "sp": 0,
+    "cp": 0,
+    "xp": 0,
+    "custom": {}
+  },
+  "rewardHistory": [],
+  "progression": {
+    "level": 1,
+    "xp": 0,
+    "milestones": []
+  },
+  "conditions": [],
   "sheets": {
     "dnd5e": {
       "system": "dnd5e",
       "label": "D&D 5e",
-      "levelLabel": "Level 5 Fighter",
-      "sheetImage": "/characters/your-character-id/dnd-sheet.png",
+      "levelLabel": "Level 1 Fighter",
+      "sheetImage": "/characters/combat-ready-example/dnd-sheet.png",
+      "metadata": {
+        "class": "Fighter",
+        "role": "Sample combatant"
+      },
       "attributes": {
         "str": 16,
         "dex": 14,
-        "con": 15,
+        "con": 14,
         "int": 10,
         "wis": 12,
-        "cha": 8
+        "cha": 10
       },
       "stats": {
-        "level": 5,
-        "proficiencyBonus": 3,
-        "armorClass": 18,
+        "level": 1,
+        "proficiencyBonus": 2,
+        "armorClass": 16,
         "initiativeBonus": 2,
         "speed": 30,
-        "maxHp": 44,
-        "currentHp": 44,
-        "spellSaveDc": 13,
-        "spellAttackBonus": 5,
+        "maxHp": 12,
+        "currentHp": 12,
         "saveProficiencies": {
           "str": true,
           "con": true
         }
       },
       "skills": {
-        "acrobatics": { "ability": "dex" },
-        "animalHandling": { "ability": "wis" },
-        "arcana": { "ability": "int" },
         "athletics": { "ability": "str", "proficient": true },
-        "deception": { "ability": "cha" },
-        "history": { "ability": "int" },
         "insight": { "ability": "wis" },
         "intimidation": { "ability": "cha", "proficient": true },
-        "investigation": { "ability": "int" },
-        "medicine": { "ability": "wis" },
-        "nature": { "ability": "int" },
-        "perception": { "ability": "wis", "proficient": true },
-        "performance": { "ability": "cha" },
-        "persuasion": { "ability": "cha" },
-        "religion": { "ability": "int" },
-        "sleightOfHand": { "ability": "dex" },
-        "stealth": { "ability": "dex" },
-        "survival": { "ability": "wis", "expertise": true, "bonus": 1 }
+        "perception": { "ability": "wis", "proficient": true }
       },
       "actions": [
         {
-          "id": "dnd-longsword-attack",
+          "id": "dnd-example-attack",
           "type": "dnd-roll",
-          "label": "Longsword Attack",
-          "roll": "1d20+7",
-          "notes": "Optional reminder text shown on the action button.",
+          "label": "Example Attack",
+          "roll": "1d20+6",
+          "notes": "On hit, deal 1d8+3 bludgeoning damage.",
           "source": "custom",
-          "hotspot": { "x": 42, "y": 68, "icon": "sword" }
+          "metadata": {
+            "combatKind": "attack",
+            "combatCategory": "fight",
+            "attackRoll": "1d20+6",
+            "damageRoll": "1d8+3",
+            "damageType": "bludgeoning"
+          }
         },
         {
-          "id": "dnd-longsword-damage",
-          "type": "dnd-roll",
-          "label": "Longsword Damage",
-          "roll": "1d8+4",
-          "source": "custom"
-        },
-        {
-          "id": "dnd-athletics-check",
+          "id": "dnd-example-skill",
           "type": "dnd-check",
-          "label": "Athletics Check",
-          "ability": "str",
-          "skill": "athletics",
-          "source": "custom"
+          "label": "Example Skill",
+          "ability": "wis",
+          "skill": "insight",
+          "modifier": 0,
+          "notes": "Roll-only combat utility.",
+          "source": "custom",
+          "metadata": {
+            "combatCategory": "skill"
+          }
         },
         {
-          "id": "dnd-str-save",
-          "type": "dnd-check",
-          "label": "Strength Save",
-          "ability": "str",
-          "save": true,
-          "source": "custom"
-        },
-        {
-          "id": "dnd-second-wind-note",
+          "id": "dnd-example-power-note",
           "type": "note",
-          "label": "Second Wind",
-          "notes": "Once per short rest, regain 1d10 + 5 HP.",
-          "source": "custom"
+          "label": "Example Power",
+          "notes": "A note-style power or rules reminder available in combat.",
+          "source": "custom",
+          "metadata": {
+            "combatCategory": "power"
+          }
         }
-      ],
-      "metadata": {
-        "player": "Your Name",
-        "campaign": "Example Campaign"
-      }
+      ]
     },
     "nwod": {
       "system": "nwod",
       "label": "NWoD",
-      "levelLabel": "Hunter / Sin-Eater / etc.",
-      "sheetImage": "/characters/your-character-id/nwod-sheet.png",
+      "levelLabel": "Mortal / Template",
+      "sheetImage": "/characters/combat-ready-example/nwod-sheet.png",
+      "metadata": {
+        "template": "Chronicles of Darkness",
+        "role": "Sample combatant"
+      },
       "attributes": {
         "intelligence": 2,
         "wits": 3,
-        "resolve": 3,
+        "resolve": 2,
         "strength": 3,
         "dexterity": 2,
         "stamina": 3,
@@ -120,84 +162,68 @@
       "stats": {
         "willpower": 5,
         "maxWillpower": 5,
-        "health": 7,
-        "maxHealth": 7,
+        "health": 8,
+        "maxHealth": 8,
         "defense": 2,
-        "speed": 7,
-        "initiative": 6,
+        "speed": 10,
+        "initiative": 5,
         "armor": 0,
         "morality": 7
       },
       "skills": {
-        "academics": 1,
-        "computer": 0,
-        "crafts": 1,
-        "investigation": 2,
-        "medicine": 1,
-        "occult": 2,
-        "politics": 0,
-        "science": 1,
         "athletics": 2,
-        "brawl": 3,
-        "drive": 1,
-        "firearms": 1,
-        "larceny": 1,
-        "stealth": 1,
-        "survival": 2,
-        "animalKen": 0,
+        "brawl": 2,
         "empathy": 1,
-        "expression": 0,
-        "intimidation": 2,
-        "persuasion": 1,
-        "socialize": 1,
-        "streetwise": 2,
+        "investigation": 2,
+        "occult": 1,
+        "stealth": 1,
+        "streetwise": 1,
         "subterfuge": 1
       },
       "actions": [
         {
-          "id": "nwod-brawl-pool",
-          "type": "nwod-pool",
-          "label": "Brawl",
-          "pool": 6,
-          "again": 10,
-          "rote": false,
-          "chanceDie": false,
-          "notes": "Fixed pool for a power or generic strike.",
-          "source": "custom",
-          "hotspot": { "x": 55, "y": 40 }
-        },
-        {
-          "id": "nwod-strength-brawl-check",
+          "id": "nwod-example-attack",
           "type": "nwod-check",
-          "label": "Strength + Brawl",
+          "label": "Example Attack",
           "attribute": "strength",
           "skill": "brawl",
+          "modifier": 1,
+          "again": 10,
+          "rote": false,
+          "notes": "Close combat attack.",
+          "source": "custom",
+          "metadata": {
+            "combatKind": "attack",
+            "combatCategory": "fight",
+            "damage": 1
+          }
+        },
+        {
+          "id": "nwod-example-utility",
+          "type": "nwod-check",
+          "label": "Example Utility",
+          "attribute": "wits",
+          "skill": "investigation",
           "modifier": 0,
           "again": 10,
-          "rote": true,
-          "source": "custom"
+          "rote": false,
+          "notes": "Roll-only utility.",
+          "source": "custom",
+          "metadata": {
+            "combatCategory": "skill"
+          }
         },
         {
-          "id": "nwod-wits-stealth-check",
-          "type": "nwod-check",
-          "label": "Wits + Stealth",
-          "attribute": "wits",
-          "skill": "stealth",
-          "modifier": -1,
-          "again": 9,
-          "source": "custom"
-        },
-        {
-          "id": "nwod-rite-note",
+          "id": "nwod-example-power-note",
           "type": "note",
-          "label": "Rite of Cleansing",
-          "notes": "Spend 1 Willpower. Suppresses minor supernatural signatures for one scene.",
-          "source": "custom"
+          "label": "Example Power",
+          "notes": "A note-style power or rules reminder available in combat.",
+          "source": "custom",
+          "metadata": {
+            "combatCategory": "power"
+          }
         }
-      ],
-      "metadata": {
-        "template": "Chronicles of Darkness"
-      }
+      ]
     }
   }
 }

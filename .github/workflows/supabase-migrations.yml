@@ -20,7 +20,7 @@ on:
       seed_test_data:
         description: "Reset and import deterministic test data after applying migrations"
         required: true
-        default: "true"
+        default: "false"
         type: choice
         options:
           - "true"
@@ -67,13 +67,13 @@ jobs:
         run: supabase db push --yes
 
       - name: Install PostgreSQL client
-        if: (github.event_name == 'push' || github.event.inputs.seed_test_data == 'true') && (github.event_name == 'push' || github.event.inputs.dry_run == 'false')
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.seed_test_data == 'true' && github.event.inputs.dry_run == 'false'
         run: |
           sudo apt-get update
           sudo apt-get install --yes postgresql-client
 
       - name: Reset and import mock table data
-        if: (github.event_name == 'push' || github.event.inputs.seed_test_data == 'true') && (github.event_name == 'push' || github.event.inputs.dry_run == 'false')
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.seed_test_data == 'true' && github.event.inputs.dry_run == 'false'
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
