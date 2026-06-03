@@ -6,12 +6,13 @@ if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ] || [ -z "${SUPABASE_PROJECT_ID:-}" ]; the
   exit 0
 fi
 
-if [ -z "${NEXT_PUBLIC_SITE_URL:-}" ]; then
-  echo "Skipping Supabase auth URL sync (missing NEXT_PUBLIC_SITE_URL)."
-  exit 0
-fi
+DEFAULT_SITE_URL="https://tabletop-sheet-roller.vercel.app"
+SITE_URL="${NEXT_PUBLIC_SITE_URL:-$DEFAULT_SITE_URL}"
+SITE_URL="${SITE_URL%/}"
 
-SITE_URL="${NEXT_PUBLIC_SITE_URL%/}"
+if [ -z "${NEXT_PUBLIC_SITE_URL:-}" ]; then
+  echo "NEXT_PUBLIC_SITE_URL not set; using default ${DEFAULT_SITE_URL}"
+fi
 CONFIRM_URL="${SITE_URL}/auth/confirm"
 
 # Keep local dev and Vercel preview redirects allowed alongside production.

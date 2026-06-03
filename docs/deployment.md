@@ -13,7 +13,7 @@ Add these environment variables in Vercel Project Settings:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://toogirtxlnsbtvmqcqgw.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<Supabase publishable key>
-NEXT_PUBLIC_SITE_URL=https://<your-production-domain>
+NEXT_PUBLIC_SITE_URL=https://tabletop-sheet-roller.vercel.app
 ```
 
 `NEXT_PUBLIC_SITE_URL` must be your canonical production origin (no trailing slash). The app sends email verification redirects to `{NEXT_PUBLIC_SITE_URL}/auth/confirm`.

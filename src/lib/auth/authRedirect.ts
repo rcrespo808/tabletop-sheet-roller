@@ -1,37 +1,11 @@
-import { publicBasePath } from "@/lib/site";
+import { AUTH_CONFIRM_PATH } from "@/lib/auth/authPaths";
+import { publicBasePath, resolveSiteOrigin } from "@/lib/site";
 
-export const AUTH_CONFIRM_PATH = "/auth/confirm";
-
-/** Production site origin from env (no trailing slash). */
-export function getConfiguredSiteOrigin(): string | undefined {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (!siteUrl) return undefined;
-  return siteUrl.replace(/\/$/, "");
-}
-
-/**
- * App origin for auth redirects: configured production URL first, then browser origin.
- */
-export function getAppOrigin(fallbackOrigin?: string): string | undefined {
-  const configured = getConfiguredSiteOrigin();
-  if (configured) return configured;
-
-  if (fallbackOrigin) {
-    return fallbackOrigin.replace(/\/$/, "");
-  }
-
-  if (typeof window !== "undefined") {
-    return window.location.origin;
-  }
-
-  return undefined;
-}
+export { AUTH_CONFIRM_PATH } from "@/lib/auth/authPaths";
 
 /** Full URL Supabase should redirect to after email confirmation. */
-export function getAuthConfirmUrl(origin?: string): string | undefined {
-  const base = getAppOrigin(origin);
-  if (!base) return undefined;
-
+export function getAuthConfirmUrl(browserOrigin?: string): string {
+  const base = resolveSiteOrigin(browserOrigin);
   const path = `${publicBasePath}${AUTH_CONFIRM_PATH}` || AUTH_CONFIRM_PATH;
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${base}${normalizedPath}`;

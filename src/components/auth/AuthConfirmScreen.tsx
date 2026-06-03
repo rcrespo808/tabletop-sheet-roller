@@ -7,23 +7,26 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getAppUserProfile } from "@/lib/auth/supabaseAuth";
 import { GlassPanel } from "@/components/GlassPanel";
-import { getSupabaseClient } from "@/lib/storage/supabaseClient";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/storage/supabaseClient";
 
 type ConfirmStatus = "loading" | "success" | "error";
 
 export function AuthConfirmScreen() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [status, setStatus] = useState<ConfirmStatus>("loading");
-  const [message, setMessage] = useState("Confirming your account…");
+  const staticError = !isSupabaseConfigured()
+    ? "Supabase is not configured for this deployment."
+    : (searchParams.get("error_description") ?? searchParams.get("error"));
+  const [status, setStatus] = useState<ConfirmStatus>(staticError ? "error" : "loading");
+  const [message, setMessage] = useState(
+    staticError ?? "Confirming your account…"
+  );
 
   useEffect(() => {
+    if (staticError) return;
+
     const supabaseClient = getSupabaseClient();
-    if (!supabaseClient) {
-      setStatus("error");
-      setMessage("Supabase is not configured for this deployment.");
-      return;
-    }
+    if (!supabaseClient) return;
 
     const auth = supabaseClient.auth;
     let cancelled = false;
@@ -39,14 +42,6 @@ export function AuthConfirmScreen() {
     }
 
     async function confirmFromLink() {
-      const authError =
-        searchParams.get("error_description") ?? searchParams.get("error");
-      if (authError) {
-        setStatus("error");
-        setMessage(authError);
-        return;
-      }
-
       const tokenHash = searchParams.get("token_hash");
       const type = searchParams.get("type") as EmailOtpType | null;
       const code = searchParams.get("code");
@@ -115,7 +110,7 @@ export function AuthConfirmScreen() {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [router, searchParams]);
+  }, [router, searchParams, staticError]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 text-foreground">
