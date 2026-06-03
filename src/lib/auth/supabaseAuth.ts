@@ -1,4 +1,5 @@
 import type { Session, User } from "@supabase/supabase-js";
+import { getAuthConfirmUrl } from "@/lib/auth/authRedirect";
 import { getSupabaseClient } from "@/lib/storage/supabaseClient";
 import type { UserLevel } from "@/lib/sheets/types";
 
@@ -37,9 +38,9 @@ function rowToProfile(row: AppUserProfileRow): AppUserProfile {
   };
 }
 
-function redirectToOrigin(): string | undefined {
-  if (typeof window === "undefined") return undefined;
-  return window.location.origin;
+function authRedirectUrl(): string | undefined {
+  if (typeof window === "undefined") return getAuthConfirmUrl();
+  return getAuthConfirmUrl(window.location.origin);
 }
 
 export async function getAppUserProfile(user: User): Promise<AppUserProfile | null> {
@@ -126,7 +127,7 @@ export async function signUpWithEmail(options: {
     email: options.email,
     password: options.password,
     options: {
-      emailRedirectTo: redirectToOrigin(),
+      emailRedirectTo: authRedirectUrl(),
       data: {
         display_name: options.displayName ?? null,
         user_level: options.userLevel ?? "player"
@@ -140,18 +141,6 @@ export async function signInWithEmail(email: string, password: string) {
   if (!client) throw new Error("Supabase is not configured.");
 
   return client.auth.signInWithPassword({ email, password });
-}
-
-export async function signInWithGoogle() {
-  const client = getSupabaseClient();
-  if (!client) throw new Error("Supabase is not configured.");
-
-  return client.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: redirectToOrigin()
-    }
-  });
 }
 
 export async function updateAppUserLevel(userLevel: UserLevel): Promise<AppUserProfile | null> {

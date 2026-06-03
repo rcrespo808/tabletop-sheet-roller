@@ -13,9 +13,32 @@ Add these environment variables in Vercel Project Settings:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://toogirtxlnsbtvmqcqgw.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<Supabase publishable key>
+NEXT_PUBLIC_SITE_URL=https://<your-production-domain>
 ```
 
+`NEXT_PUBLIC_SITE_URL` must be your canonical production origin (no trailing slash). The app sends email verification redirects to `{NEXT_PUBLIC_SITE_URL}/auth/confirm`.
+
 The publishable key is intended for browser use, but it is still environment-specific and should be managed in Vercel rather than hardcoded in source.
+
+## Email verification and auth redirects
+
+Sign-up email verification redirects to `/auth/confirm`, which exchanges the Supabase token and then sends the user back to the gallery.
+
+On deploy, `.github/workflows/deploy.yml` runs `scripts/sync-supabase-auth-config.sh` when these GitHub Actions secrets are set:
+
+- `SUPABASE_ACCESS_TOKEN`
+- `SUPABASE_PROJECT_ID`
+- `NEXT_PUBLIC_SITE_URL`
+
+That script patches the hosted Supabase project auth config so `site_url` matches production and the redirect allow list includes:
+
+- `{NEXT_PUBLIC_SITE_URL}/auth/confirm`
+- Local dev URLs (`localhost`, `127.0.0.1`)
+- `https://*-*.vercel.app/auth/confirm` for preview deployments
+
+Add the same `NEXT_PUBLIC_SITE_URL` value to GitHub Actions secrets and Vercel env vars so client redirects and the Supabase dashboard stay aligned.
+
+For local-only testing without CI, you can still verify accounts at `http://localhost:3000/auth/confirm` after adding that URL under Supabase **Authentication → URL Configuration → Redirect URLs**.
 
 ## GitHub Actions
 
@@ -82,6 +105,7 @@ Required repository **secrets** for app deployment:
 - `VERCEL_PROJECT_ID`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `NEXT_PUBLIC_SITE_URL`
 
 When deploying through GitHub Actions, the workflow passes the `NEXT_PUBLIC_*` secrets into `vercel build` on the runner. Keep the same values in Vercel Project Settings for dashboard redeploys and `vercel pull` consistency.
 

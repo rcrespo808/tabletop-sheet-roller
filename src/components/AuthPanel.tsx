@@ -6,7 +6,6 @@ import {
   getCurrentAuthState,
   onAuthStateChanged,
   signInWithEmail,
-  signInWithGoogle,
   signOut,
   signUpWithEmail,
   updateAppUserLevel,
@@ -105,7 +104,9 @@ export function AuthPanel({ onAuthChange }: AuthPanelProps) {
 
         if (signUpError) throw signUpError;
         if (!data.session) {
-          setMessage("Check your email to verify your account before signing in.");
+          setMessage(
+            "Check your email and open the verification link. It should land on this app's account verification page."
+          );
         } else {
           setMessage("Account created.");
           await refreshAuthState();
@@ -120,20 +121,6 @@ export function AuthPanel({ onAuthChange }: AuthPanelProps) {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Authentication failed.");
     } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleGoogleSignIn() {
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const { error: googleError } = await signInWithGoogle();
-      if (googleError) throw googleError;
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Google sign-in failed.");
       setBusy(false);
     }
   }
@@ -269,26 +256,15 @@ export function AuthPanel({ onAuthChange }: AuthPanelProps) {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            className="inline-flex h-10 items-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-700/40 px-4 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-700/60 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={busy}
-            onClick={handleSubmit}
-            type="button"
-          >
-            <LogIn className="h-4 w-4" aria-hidden="true" />
-            {mode === "signin" ? "Sign in" : "Sign up"}
-          </button>
-          <button
-            className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-4 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={busy}
-            onClick={handleGoogleSignIn}
-            type="button"
-          >
-            <Mail className="h-4 w-4" aria-hidden="true" />
-            Google
-          </button>
-        </div>
+        <button
+          className="inline-flex h-10 items-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-700/40 px-4 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-700/60 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={busy}
+          onClick={handleSubmit}
+          type="button"
+        >
+          <LogIn className="h-4 w-4" aria-hidden="true" />
+          {mode === "signin" ? "Sign in" : "Sign up"}
+        </button>
       </div>
 
       {message ? <p className="mt-3 text-sm text-cyan-200">{message}</p> : null}
