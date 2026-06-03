@@ -1,79 +1,90 @@
-# Tabletop Sheet Roller
+# Dicer
 
-Small local MVP for viewing custom tabletop character sheets and rolling prepared or manual dice actions.
+Dicer is a work-in-progress virtual tabletop and campaign operations tool for running character-driven tabletop RPG sessions in the browser.
 
-## Goal
+The current build started as a character sheet roller and is growing toward a Roll20-style table: shared characters, tactical encounters, loot and reward automation, handouts, campaign lore, and eventually AI-assisted prep and session management.
 
-This app supports a fast first iteration:
+This repository is public as a showcase of the engineering, product thinking, and tabletop systems work behind that direction. It is not production-ready yet.
 
-- Character gallery
-- Character sheet image viewer
-- Prepared action buttons
-- Manual D&D 5e and NWoD dice rolling
-- Local browser-session roll log
-- Optional Supabase persistence and Auth for owned character libraries
+## Current Focus
+
+- Character gallery with player and GM character profiles
+- Multi-system character sheets, currently covering D&D 5e and New World of Darkness style rolls
+- Structured stats that drive prepared actions, quick rolls, and combat-ready actions
+- Manual dice rolling for ad-hoc table moments
+- Inventory, wallet, conditions, progression, and reward history panels
+- Loot tables with weighted rewards and reward application flows
+- Handouts and codex entries for campaign lore, clues, grants, and unlocks
+- Combat workspaces for GM and player views
+- Optional Supabase persistence with local browser fallback
+- Next.js app deployment path through Vercel and GitHub Actions
+
+## Planned Scope
+
+Dicer is intended to become a full campaign workspace, not just a dice utility.
+
+### Virtual Tabletop
+
+- Multi-layer maps for terrain, tokens, lighting, fog, notes, and GM-only overlays
+- Character and NPC token management
+- Encounter setup, initiative, targeting, damage, conditions, and turn resolution
+- Player-facing and GM-facing table views
+
+### Campaign Management
+
+- Campaign, table, party, and user-role management
+- Character ownership and shared character libraries
+- Session logs, prep notes, handouts, clues, and lore timelines
+- Narrative state tracking for factions, quests, consequences, and unlocked knowledge
+
+### Rewards and Inventory
+
+- Rich inventory items with usable powers and system-specific actions
+- Weighted loot tables, milestone rewards, currency grants, XP, notes, codex unlocks, and conditions
+- Reward provenance so players and GMs can trace where each grant came from
+
+### AI-Assisted Future
+
+- AI-assisted encounter prep, NPC generation, handout drafting, and session recap
+- Campaign memory over established lore, characters, and prior session events
+- GM tools that suggest narrative consequences without taking control away from the table
+
+## Tech Stack
+
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+- Supabase for optional auth, database persistence, storage, and future realtime features
+- Vercel and GitHub Actions for deployment and CI
 
 ## Run Locally
 
-Install dependencies, then start the Next.js dev server:
+Install dependencies and start the development server:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open `http://localhost:3000`.
+Open `http://localhost:3000`.
 
-## Deployment
+Useful checks:
 
-Vercel deploys the app through its GitHub integration. GitHub Actions run CI checks and can apply Supabase migrations to the existing Supabase project.
+```bash
+npm run lint
+npm run typecheck
+npm run build
+```
 
-See `docs/deployment.md` for required GitHub/Vercel secrets and migration workflow details.
+## Supabase
 
-## Supported Dice
+The app can run with local browser storage when Supabase is not configured. To enable hosted persistence, copy `.env.example` to `.env.local` and provide the Supabase values for the project.
 
-D&D 5e manual rolls support:
+Database migrations live in `supabase/migrations`. Deployment notes are in `docs/deployment.md`.
 
-- `XdY`
-- `XdY+Z`
-- `XdY-Z`
-- `d20+5`
-- Flat modifiers such as `5` or `-1`
+## Project Status
 
-NWoD rolls support:
+This is an active WIP portfolio project. Some surfaces are intentionally rough, and parts of the roadmap are represented by schema, seed data, and early UI rather than a finished end-to-end experience.
 
-- d10 dice pools
-- Successes on 8+
-- 10-again by default
-- Optional 9-again, 8-again, or no-again
-- Rote rerolls of failed dice once
-- Chance die with dramatic failure on 1 and success on 10
-
-## Seed Characters
-
-- He Zhen — one profile with D&D 5e and NWoD system sheets (`/characters/he-zhen`)
-- Legacy `/characters/he-zhen-nwod` redirects to He Zhen with the NWoD tab selected
-
-Sheet image paths are placeholders. Missing images show a fallback panel instead of crashing.
-
-## MVP Limitations
-
-- Roll log and characters fall back to local browser storage when Supabase is unavailable.
-- Seed characters are hardcoded in `src/data/characters.ts`.
-- Sheet images are static files only.
-- No editable structured sheets yet.
-- Table membership and GM/player roles have database foundations, but no full table-management UI yet.
-
-## Next Iteration
-
-Room-based realtime logs are the next useful step. Supabase Realtime or PartyKit would both fit the current model without forcing a full account system immediately.
-
-## Persistence Milestone (Supabase)
-
-Suggested next implementation steps:
-
-1. Enable email confirmation and, optionally, Google OAuth in Supabase Auth.
-2. Apply the migrations in `supabase/migrations`.
-3. Build table-management UI on top of `game_tables` and `game_table_members`.
-4. Subscribe to realtime room timelines for shared roll logs.
-5. Add integration tests for DTO mapping and migration smoke checks in CI.
+The near-term direction is to keep tightening the character, combat, handout, codex, loot, inventory, and reward systems while building toward shared realtime table play and multi-layer map support.
