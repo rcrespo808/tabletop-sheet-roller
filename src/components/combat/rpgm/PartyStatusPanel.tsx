@@ -12,12 +12,14 @@ export function PartyStatusPanel({
   party,
   activeCombatantId,
   combatFeedback,
-  flashToken
+  flashToken,
+  onSelectCombatant
 }: {
   party: Combatant[];
   activeCombatantId: string | null;
   combatFeedback?: CombatUiFeedback | null;
   flashToken?: number | string;
+  onSelectCombatant?: (combatantId: string) => void;
 }) {
   return (
     <GlassPanel level="secondary" className="p-4 sm:p-5">
@@ -43,14 +45,21 @@ export function PartyStatusPanel({
                 ? hpHighlight.hpAfter - hpHighlight.hpBefore
                 : 0;
 
+            const Wrapper = onSelectCombatant ? "button" : "div";
+
             return (
-              <div
-                className={`relative flex gap-3 rounded-lg border p-3 ${
+              <Wrapper
+                className={`relative flex w-full gap-3 rounded-lg border p-3 text-left ${
                   isActiveTurn
                     ? "border-purple-500/50 bg-purple-500/10 ring-1 ring-purple-400/40"
                     : "border-slate-700/30 bg-slate-950/35"
-                } ${dimmed ? "opacity-55" : ""} ${hpHighlight ? "rpgm-hp-flash" : ""}`}
+                } ${dimmed ? "opacity-55" : ""} ${hpHighlight ? "rpgm-hp-flash" : ""} ${
+                  onSelectCombatant ? "hover:border-purple-500/35" : ""
+                }`}
                 key={member.id}
+                {...(onSelectCombatant
+                  ? { onClick: () => onSelectCombatant(member.id), type: "button" as const }
+                  : {})}
               >
                 {damageAmount > 0 ? (
                   <DamagePopup amount={damageAmount} flashToken={flashToken} kind="damage" />
@@ -75,8 +84,11 @@ export function PartyStatusPanel({
                       Active Turn
                     </p>
                   ) : null}
+                  {onSelectCombatant && !isActiveTurn ? (
+                    <p className="mt-1 text-[10px] text-muted-foreground">Tap to set active turn</p>
+                  ) : null}
                 </div>
-              </div>
+              </Wrapper>
             );
           })}
         </div>

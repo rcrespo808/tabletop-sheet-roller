@@ -15,6 +15,13 @@ Select target → Command menu → Declare → status banner + combat log entry 
 
 ## GM path
 
+GM mode uses the same RPGM shell as players (`RpgCombatShell` + `CommandMenu` in `mode="gm"`), plus:
+
+- Turn toolbar (end / next turn)
+- Resolve / roll buttons on the command confirm step
+- Pending action panel with **Resolve pending**
+- Collapsible roster (manual damage, heal, status, make active)
+
 Select target → **Resolve** on an attack, or **Resolve pending** when a player declaration exists.
 
 ## Combat log

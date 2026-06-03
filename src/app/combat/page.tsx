@@ -10,13 +10,10 @@ import {
   Skull,
   Sparkles,
   Swords,
-  Target,
   X
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AuthPanel } from "@/components/AuthPanel";
-import { CombatActionPanel } from "@/components/combat/CombatActionPanel";
-import { CombatHistoryList } from "@/components/combat/CombatHistoryList";
 import { CombatLogDrawer } from "@/components/combat/CombatLogDrawer";
 import { CombatModeTabs, type CombatMode } from "@/components/combat/CombatModeTabs";
 import { GmCombatScreen } from "@/components/combat/GmCombatScreen";
@@ -57,7 +54,6 @@ import {
   isResolvablePendingAction
 } from "@/lib/combat/combatFlow";
 import type { CombatActionStatus, CombatFlowPhase } from "@/lib/combat/combatFlow";
-import { CombatFlowHint } from "@/components/combat/CombatFlowHint";
 import {
   resolveCombatAction,
   resolvePendingCombatAction,
@@ -151,7 +147,9 @@ function CombatModeContent({
   children: ReactNode;
   mode: CombatMode;
 }) {
-  if (mode === "gm") return <GmCombatScreen>{children}</GmCombatScreen>;
+  if (mode === "gm") {
+    return <section className="space-y-4 sm:space-y-6">{children}</section>;
+  }
   if (mode === "setup") return <PreCombatSetupPanel>{children}</PreCombatSetupPanel>;
   return <>{children}</>;
 }
@@ -870,35 +868,32 @@ export default function CombatPage() {
             />
 
             {combatMode === "gm" ? (
-            <ActiveTurnPanel
-              activeCombatant={currentCombatant}
-              canDeclare={activeOwnedByUser && !gmUser}
-              canResolve={gmUser}
-              pendingAction={activeEncounter.pendingAction ?? null}
-              onDeclareAction={handleDeclareCurrentAction}
-              onClearPendingAction={handleClearPendingAction}
-              onEndTurn={handleAdvanceTurn}
-              onNextTurn={handleAdvanceTurn}
-              flowPhase={combatFlowPhase}
-              onResolveAction={handleResolveCurrentAction}
-              onResolvePendingAction={handleResolvePendingAction}
-              onRollUtilityAction={handleRollUtilityAction}
-              onSelectedTargetIdChange={handleSelectTargetId}
-              selectedTarget={selectedTarget}
-              selectedTargetId={effectiveSelectedTargetId}
-              showAllTargets={showAllTargets}
-              setShowAllTargets={setShowAllTargets}
-              validTargets={validTargets}
-            />
-            ) : null}
-
-            {combatMode === "gm" && recentResult ? (
-              <GlassPanel level="secondary" className="p-5">
-                <p className="text-sm font-semibold text-foreground">Last Resolution</p>
-                <pre className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
-                  {recentResult.summary}
-                </pre>
-              </GlassPanel>
+              <GmCombatScreen
+                actionStatus={actionStatus}
+                activeCombatant={currentCombatant}
+                canManage={gmUser}
+                encounter={activeEncounter}
+                flowPhase={combatFlowPhase}
+                onClearPendingAction={handleClearPendingAction}
+                onDamage={handleManualDamage}
+                onDeclareAction={handleDeclareCurrentAction}
+                onDeclareBuiltIn={handleDeclareBuiltIn}
+                onEndTurn={handleAdvanceTurn}
+                onHeal={handleManualHealing}
+                onMakeActive={handleMakeActive}
+                onNextTurn={handleAdvanceTurn}
+                onOpenCombatLog={() => setCombatLogOpen(true)}
+                onResolveAction={handleResolveCurrentAction}
+                onResolvePendingAction={handleResolvePendingAction}
+                onRollUtilityAction={handleRollUtilityAction}
+                onSelectTarget={handleSelectTargetId}
+                onShowAllTargetsChange={setShowAllTargets}
+                onStatus={handleStatusChange}
+                recentResult={recentResult}
+                selectedTargetId={effectiveSelectedTargetId}
+                showAllTargets={showAllTargets}
+                validTargets={validTargets}
+              />
             ) : null}
 
             {combatMode === "setup" ? (
@@ -998,35 +993,6 @@ export default function CombatPage() {
             </GlassPanel>
             ) : null}
 
-            <CombatRoster
-              canManage={gmUser && combatMode === "gm"}
-              encounter={activeEncounter}
-              onDamage={handleManualDamage}
-              onHeal={handleManualHealing}
-              onMakeActive={handleMakeActive}
-              onStatus={handleStatusChange}
-              onTarget={(id) => handleSelectTargetId(id)}
-            />
-
-            {combatMode === "gm" ? (
-              <GlassPanel level="secondary" className="p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-lg font-semibold text-foreground">Combat History</h2>
-                  <button
-                    className="text-xs font-semibold text-cyan-200 hover:underline"
-                    onClick={() => setCombatLogOpen(true)}
-                    type="button"
-                  >
-                    Open full log
-                  </button>
-                </div>
-                <CombatHistoryList
-                  className="mt-4 max-h-72"
-                  entries={activeEncounter.actionHistory ?? []}
-                  maxEntries={30}
-                />
-              </GlassPanel>
-            ) : null}
           </CombatModeContent>
         ) : combatMode !== "player" ? (
           <GlassPanel level="tertiary" className="p-8 text-center">
@@ -1197,433 +1163,6 @@ function EncounterHeader({
           ) : null}
         </div>
       </div>
-    </GlassPanel>
-  );
-}
-
-function CombatRoster({
-  encounter,
-  canManage,
-  onTarget,
-  onDamage,
-  onHeal,
-  onMakeActive,
-  onStatus
-}: {
-  encounter: CombatEncounter;
-  canManage: boolean;
-  onTarget: (id: string) => void | Promise<void>;
-  onDamage: (id: string, amount: number) => void | Promise<void>;
-  onHeal: (id: string, amount: number) => void | Promise<void>;
-  onMakeActive: (id: string) => void | Promise<void>;
-  onStatus: (id: string, status: CombatStatus) => void | Promise<void>;
-}) {
-  if (encounter.combatants.length === 0) {
-    return (
-      <GlassPanel level="tertiary" className="p-8 text-center">
-        <p className="text-sm text-muted-foreground">No combatants in roster.</p>
-      </GlassPanel>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="hidden overflow-x-auto rounded-lg border border-slate-700/30 lg:block">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-950/50 text-left text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2">Init</th>
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Team</th>
-              <th className="px-3 py-2">HP</th>
-              <th className="px-3 py-2">Defense</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Targets</th>
-              <th className="px-3 py-2">Controls</th>
-            </tr>
-          </thead>
-          <tbody>
-            {encounter.combatants.map((combatant, index) => (
-              <CombatantRow
-                combatant={combatant}
-                encounter={encounter}
-                isCurrentTurn={
-                  encounter.status === "active" && encounter.turnIndex === index
-                }
-                canManage={canManage}
-                key={combatant.id}
-                layout="table"
-                onDamage={onDamage}
-                onHeal={onHeal}
-                onMakeActive={onMakeActive}
-                onStatus={onStatus}
-                onTarget={onTarget}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="space-y-3 lg:hidden">
-        {encounter.combatants.map((combatant, index) => (
-          <CombatantRow
-            combatant={combatant}
-            encounter={encounter}
-            isCurrentTurn={encounter.status === "active" && encounter.turnIndex === index}
-            canManage={canManage}
-            key={combatant.id}
-            layout="card"
-            onDamage={onDamage}
-            onHeal={onHeal}
-            onMakeActive={onMakeActive}
-            onStatus={onStatus}
-            onTarget={onTarget}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ActiveTurnPanel({
-  activeCombatant,
-  canResolve,
-  canDeclare,
-  pendingAction,
-  selectedTargetId,
-  selectedTarget,
-  validTargets,
-  showAllTargets,
-  setShowAllTargets,
-  onSelectedTargetIdChange,
-  onResolveAction,
-  onResolvePendingAction,
-  onDeclareAction,
-  onClearPendingAction,
-  onRollUtilityAction,
-  onEndTurn,
-  onNextTurn,
-  flowPhase
-}: {
-  activeCombatant: Combatant | null;
-  canResolve: boolean;
-  canDeclare: boolean;
-  pendingAction: CombatEncounter["pendingAction"];
-  selectedTargetId: string;
-  selectedTarget: Combatant | null;
-  validTargets: Combatant[];
-  showAllTargets: boolean;
-  setShowAllTargets: (value: boolean) => void;
-  onSelectedTargetIdChange: (value: string) => void;
-  onResolveAction: (actionId: string) => void | Promise<void>;
-  onResolvePendingAction: () => void | Promise<void>;
-  onDeclareAction: (actionId: string) => void | Promise<void>;
-  onClearPendingAction: () => void | Promise<void>;
-  onRollUtilityAction: (action: CombatAction) => void | Promise<void>;
-  onEndTurn: () => void | Promise<void>;
-  onNextTurn: () => void | Promise<void>;
-  flowPhase: CombatFlowPhase;
-}) {
-  const actions = activeCombatant?.combatActions ?? [];
-  const pendingActionLabel = pendingAction?.actionId
-    ? actions.find((action) => action.id === pendingAction.actionId)?.label
-    : undefined;
-  const targetSummary = selectedTarget
-    ? `${selectedTarget.instanceName} · ${TEAM_LABELS[selectedTarget.team]} · HP ${
-        selectedTarget.currentHp ?? selectedTarget.maxHp ?? "—"
-      }/${selectedTarget.maxHp ?? "—"} · ${
-        selectedTarget.system === "dnd5e"
-          ? `AC ${selectedTarget.armorClass ?? "—"}`
-          : `Defense ${selectedTarget.defense ?? "—"}`
-      } · ${STATUS_LABELS[selectedTarget.status]}`
-    : "No target selected";
-
-  return (
-    <GlassPanel level="secondary" className="p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase text-muted-foreground">Active Combatant</p>
-          <h2 className="mt-1 text-xl font-semibold text-foreground">
-            {activeCombatant?.instanceName ?? "None"}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            HP {activeCombatant?.currentHp ?? "—"}/{activeCombatant?.maxHp ?? "—"} ·{" "}
-            {activeCombatant?.system === "dnd5e"
-              ? `AC ${activeCombatant?.armorClass ?? "—"}`
-              : `Defense ${activeCombatant?.defense ?? "—"}${
-                  activeCombatant?.armor !== undefined ? ` · Armor ${activeCombatant.armor}` : ""
-                }`}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            className="h-10 rounded-md border border-slate-600/40 px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!canResolve}
-            onClick={() => void onEndTurn()}
-            type="button"
-          >
-            End Turn
-          </button>
-          <button
-            className="h-10 rounded-md border border-purple-500/40 bg-purple-600/25 px-4 text-sm font-semibold text-purple-100 disabled:cursor-not-allowed disabled:opacity-40"
-            disabled={!canResolve}
-            onClick={() => void onNextTurn()}
-            type="button"
-          >
-            Next Turn Override
-          </button>
-        </div>
-      </div>
-
-      <CombatFlowHint phase={flowPhase} />
-
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <div className="rounded-md border border-slate-700/25 bg-slate-950/30 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Target</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {selectedTarget
-                  ? "Target locked for resolve."
-                  : "Step 1 — pick a target, then resolve or confirm pending."}
-              </p>
-            </div>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <input
-                checked={showAllTargets}
-                className="accent-purple-400"
-                onChange={(event) => setShowAllTargets(event.target.checked)}
-                type="checkbox"
-              />
-              Show all valid targets
-            </label>
-          </div>
-          <select
-            className="mt-3 h-10 w-full rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
-            onChange={(event) => onSelectedTargetIdChange(event.target.value)}
-            value={selectedTargetId}
-          >
-            <option value="">Select target…</option>
-            {validTargets.map((target) => (
-              <option key={target.id} value={target.id}>
-                {target.instanceName} · {TEAM_LABELS[target.team]} · HP{" "}
-                {target.currentHp ?? target.maxHp ?? "—"}/{target.maxHp ?? "—"} ·{" "}
-                {target.system === "dnd5e"
-                  ? `AC ${target.armorClass ?? "—"}`
-                  : `Defense ${target.defense ?? "—"}`} · {STATUS_LABELS[target.status]}
-              </option>
-            ))}
-          </select>
-          <div className="mt-3 rounded-md border border-slate-700/25 bg-slate-900/50 p-3 text-sm text-muted-foreground">
-            {targetSummary}
-          </div>
-        </div>
-
-        <div className="rounded-md border border-slate-700/25 bg-slate-950/30 p-4">
-          <p className="text-sm font-semibold text-foreground">Actions</p>
-          <CombatActionPanel
-            activeCombatant={activeCombatant}
-            canDeclare={canDeclare}
-            canResolve={canResolve}
-            onDeclareAction={onDeclareAction}
-            onResolveAction={onResolveAction}
-            onResolvePendingAction={onResolvePendingAction}
-            onRollUtilityAction={onRollUtilityAction}
-            pendingAction={pendingAction}
-            selectedTargetId={selectedTargetId}
-          />
-          {pendingAction ? (
-            <div className="mt-4 rounded-md border border-cyan-500/30 bg-cyan-950/30 p-3 text-sm text-cyan-100">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <p className="font-semibold">Pending player action</p>
-                <button
-                  className="rounded border border-cyan-400/40 px-2 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={!canResolve}
-                  onClick={() => void onClearPendingAction()}
-                  type="button"
-                >
-                  Clear
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-cyan-100/80">
-                {activeCombatant?.instanceName ?? "Combatant"} →{" "}
-                {selectedTarget?.instanceName ?? pendingAction.targetId ?? "target"} with{" "}
-                {pendingActionLabel ?? pendingAction.actionId ?? "action"}.
-              </p>
-              {isResolvablePendingAction(pendingAction) && canResolve ? (
-                <p className="mt-2 text-xs text-emerald-100">
-                  Use Resolve pending above to roll attack vs AC and apply damage.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </GlassPanel>
-  );
-}
-
-function CombatantRow({
-  combatant,
-  encounter,
-  layout,
-  isCurrentTurn,
-  canManage,
-  onTarget,
-  onDamage,
-  onHeal,
-  onMakeActive,
-  onStatus
-}: {
-  combatant: Combatant;
-  encounter: CombatEncounter;
-  layout: "table" | "card";
-  isCurrentTurn: boolean;
-  canManage: boolean;
-  onTarget: (id: string) => void | Promise<void>;
-  onDamage: (id: string, amount: number) => void | Promise<void>;
-  onHeal: (id: string, amount: number) => void | Promise<void>;
-  onMakeActive: (id: string) => void | Promise<void>;
-  onStatus: (id: string, status: CombatStatus) => void | Promise<void>;
-}) {
-  const [damageInput, setDamageInput] = useState("5");
-  const [healInput, setHealInput] = useState("5");
-  const defenseLabel =
-    combatant.system === "dnd5e"
-      ? combatant.armorClass !== undefined
-        ? `AC ${combatant.armorClass}`
-        : "—"
-      : `Def ${combatant.defense ?? "—"}${combatant.armor !== undefined ? ` / Arm ${combatant.armor}` : ""}`;
-
-  const targetNames = combatant.targetIds
-    .map((id) => encounter.combatants.find((entry) => entry.id === id)?.instanceName)
-    .filter(Boolean);
-
-  const controls = (
-    <div className="flex flex-wrap gap-1">
-      <button
-        className="h-8 rounded border border-slate-600/40 px-2 text-xs"
-        disabled={!canManage}
-        onClick={() => onDamage(combatant.id, 5)}
-        type="button"
-      >
-        -5
-      </button>
-      <input
-        className="h-8 w-12 rounded border border-slate-700/30 bg-slate-900/60 px-1 text-xs"
-        disabled={!canManage}
-        onChange={(event) => setDamageInput(event.target.value)}
-        type="number"
-        value={damageInput}
-      />
-      <button
-        className="h-8 rounded border border-red-500/30 px-2 text-xs text-red-100"
-        disabled={!canManage}
-        onClick={() => onDamage(combatant.id, Number(damageInput) || 0)}
-        type="button"
-      >
-        Apply Damage
-      </button>
-      <input
-        className="h-8 w-12 rounded border border-slate-700/30 bg-slate-900/60 px-1 text-xs"
-        disabled={!canManage}
-        onChange={(event) => setHealInput(event.target.value)}
-        type="number"
-        value={healInput}
-      />
-      <button
-        className="h-8 rounded border border-emerald-500/30 px-2 text-xs text-emerald-100"
-        disabled={!canManage}
-        onClick={() => onHeal(combatant.id, Number(healInput) || 0)}
-        type="button"
-      >
-        Apply Healing
-      </button>
-      <button
-        className="h-8 rounded border border-amber-400 bg-amber-500/20 px-2 text-xs text-amber-100"
-        onClick={() => onTarget(combatant.id)}
-        type="button"
-      >
-        <Target className="inline h-3 w-3" /> Target
-      </button>
-      {(["down", "dead", "fled", "hidden", "active"] as CombatStatus[]).map((status) => (
-        <button
-          className="h-8 rounded border border-slate-600/40 px-2 text-[10px] uppercase"
-          disabled={!canManage}
-          key={status}
-          onClick={() => onStatus(combatant.id, status)}
-          type="button"
-        >
-          {status}
-        </button>
-      ))}
-      <button
-        className="h-8 rounded border border-purple-500/30 px-2 text-xs text-purple-100"
-        disabled={!canManage}
-        onClick={() => onMakeActive(combatant.id)}
-        type="button"
-      >
-        Make Active
-      </button>
-    </div>
-  );
-
-  if (layout === "table") {
-    return (
-      <>
-        <tr
-          className={`border-t border-slate-700/20 ${isCurrentTurn ? "bg-purple-500/10" : ""}`}
-        >
-          <td className="px-3 py-2 font-semibold">{combatant.initiative || "—"}</td>
-          <td className="px-3 py-2">
-            <p className="font-medium">{combatant.instanceName}</p>
-            {combatant.crLabel ? (
-              <p className="text-xs text-muted-foreground">{combatant.crLabel}</p>
-            ) : null}
-          </td>
-          <td className="px-3 py-2">{TEAM_LABELS[combatant.team]}</td>
-          <td className="px-3 py-2">
-            {combatant.currentHp ?? "—"}/{combatant.maxHp ?? "—"}
-            {combatant.temporaryHp ? ` (+${combatant.temporaryHp} temp)` : ""}
-          </td>
-          <td className="px-3 py-2">{defenseLabel}</td>
-          <td className="px-3 py-2">{STATUS_LABELS[combatant.status]}</td>
-          <td className="px-3 py-2 text-xs">{targetNames.join(", ") || "—"}</td>
-          <td className="px-3 py-2">{controls}</td>
-        </tr>
-      </>
-    );
-  }
-
-  return (
-    <GlassPanel
-      className={`p-4 ${isCurrentTurn ? "ring-1 ring-purple-500/40" : ""}`}
-      level="secondary"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold">{combatant.instanceName}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Init {combatant.initiative || "—"} · {TEAM_LABELS[combatant.team]} ·{" "}
-            {STATUS_LABELS[combatant.status]}
-          </p>
-        </div>
-        {combatant.crLabel ? (
-          <span className="rounded-full border border-slate-600/40 px-2 py-0.5 text-xs">
-            {combatant.crLabel}
-          </span>
-        ) : null}
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-        <p>
-          HP {combatant.currentHp ?? "—"}/{combatant.maxHp ?? "—"}
-        </p>
-        <p>{defenseLabel}</p>
-        <p className="col-span-2">
-          Targets: {targetNames.join(", ") || "none"}
-        </p>
-      </div>
-      <div className="mt-3">{controls}</div>
     </GlassPanel>
   );
 }

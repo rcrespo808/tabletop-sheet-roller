@@ -4,12 +4,13 @@ import { useMemo } from "react";
 import { ActiveActorPanel } from "@/components/combat/rpgm/ActiveActorPanel";
 import { ActionStatusBanner } from "@/components/combat/ActionStatusBanner";
 import { CombatFlowHint } from "@/components/combat/CombatFlowHint";
-import { CommandMenu } from "@/components/combat/rpgm/CommandMenu";
+import { CommandMenu, type CommandMenuMode } from "@/components/combat/rpgm/CommandMenu";
+import { GmPendingPanel } from "@/components/combat/GmPendingPanel";
 import { EnemyField } from "@/components/combat/rpgm/EnemyField";
 import { PartyStatusPanel } from "@/components/combat/rpgm/PartyStatusPanel";
 import { SelectedTargetBanner } from "@/components/combat/rpgm/SelectedTargetBanner";
 import { TargetGrid } from "@/components/combat/rpgm/TargetGrid";
-import type { CombatEncounter, Combatant } from "@/lib/combat/types";
+import type { CombatAction, CombatEncounter, Combatant } from "@/lib/combat/types";
 import type { CombatActionStatus, CombatFlowPhase } from "@/lib/combat/combatFlow";
 import type { BuiltinCommandId } from "@/lib/combat/rpgmActionCatalog";
 import {
@@ -30,6 +31,15 @@ export type RpgCombatShellProps = {
   recentResult?: RpgRecentResult | null;
   flowPhase?: CombatFlowPhase;
   actionStatus?: CombatActionStatus | null;
+  mode?: CommandMenuMode;
+  canResolve?: boolean;
+  onResolveAction?: (actionId: string) => void | Promise<void>;
+  onRollUtilityAction?: (action: CombatAction) => void | Promise<void>;
+  onResolvePendingAction?: () => void | Promise<void>;
+  onClearPendingAction?: () => void | Promise<void>;
+  showAllTargets?: boolean;
+  onShowAllTargetsChange?: (value: boolean) => void;
+  onMakeActive?: (combatantId: string) => void | Promise<void>;
 };
 
 export function RpgCombatShell({
@@ -44,8 +54,18 @@ export function RpgCombatShell({
   canDeclare = false,
   recentResult,
   flowPhase = "idle",
-  actionStatus = null
+  actionStatus = null,
+  mode = "player",
+  canResolve = false,
+  onResolveAction,
+  onRollUtilityAction,
+  onResolvePendingAction,
+  onClearPendingAction,
+  showAllTargets,
+  onShowAllTargetsChange,
+  onMakeActive
 }: RpgCombatShellProps) {
+  const isGm = mode === "gm";
   const combatFeedback = useMemo(
     () => resolveCombatFeedback(recentResult, encounter.actionHistory ?? []),
     [recentResult, encounter.actionHistory]
@@ -96,7 +116,9 @@ export function RpgCombatShell({
         combatFeedback={combatFeedback}
         flashToken={flashToken}
         onSelectTarget={onSelectTarget}
+        onShowAllTargetsChange={isGm ? onShowAllTargetsChange : undefined}
         selectedTargetId={selectedTargetId}
+        showAllTargets={showAllTargets}
         validTargets={validTargets}
       />
       <SelectedTargetBanner
@@ -108,6 +130,7 @@ export function RpgCombatShell({
         activeCombatantId={activeCombatant?.id ?? null}
         combatFeedback={combatFeedback}
         flashToken={flashToken}
+        onSelectCombatant={onMakeActive}
         party={party}
       />
       <ActiveActorPanel
@@ -119,11 +142,32 @@ export function RpgCombatShell({
         key={activeCombatant?.id ?? "no-active-combatant"}
         activeCombatant={activeCombatant}
         canDeclare={canDeclare}
+        canResolve={canResolve}
+        mode={mode}
         onDeclareAction={onDeclareAction}
         onDeclareBuiltIn={onDeclareBuiltIn}
+        onResolveAction={onResolveAction}
+        onResolvePendingAction={onResolvePendingAction}
+        onRollUtilityAction={onRollUtilityAction}
+        pendingAction={encounter.pendingAction}
         selectedTargetId={selectedTargetId}
       />
-      {encounter.pendingAction ? (
+      {isGm && encounter.pendingAction ? (
+        <GmPendingPanel
+          activeCombatant={activeCombatant}
+          canManage={canResolve}
+          onClearPendingAction={() => void onClearPendingAction?.()}
+          onResolvePendingAction={() => void onResolvePendingAction?.()}
+          pendingAction={encounter.pendingAction}
+          pendingActionLabel={
+            activeCombatant?.combatActions.find(
+              (action) => action.id === encounter.pendingAction?.actionId
+            )?.label
+          }
+          selectedTarget={selectedTarget}
+        />
+      ) : null}
+      {!isGm && encounter.pendingAction ? (
         <p className="rounded-md border border-cyan-500/30 bg-cyan-950/30 px-4 py-3 text-sm text-cyan-100">
           Pending declaration is waiting for GM review. Open Combat Log in the header for full
           history.

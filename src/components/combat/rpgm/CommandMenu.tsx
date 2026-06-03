@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Dices } from "lucide-react";
+import { isResolvablePendingAction } from "@/lib/combat/combatFlow";
+import type { CombatEncounter } from "@/lib/combat/types";
 import { ActionSubmenu } from "@/components/combat/rpgm/ActionSubmenu";
 import { GlassPanel } from "@/components/GlassPanel";
 import { canAct } from "@/lib/combat/combatEngine";
@@ -19,20 +21,35 @@ import {
 import type { BuiltinCommandId } from "@/lib/combat/rpgmActionCatalog";
 
 type MenuPhase = "root" | "list" | "confirm";
+export type CommandMenuMode = "player" | "gm";
 
 export function CommandMenu({
   activeCombatant,
   canDeclare,
+  canResolve = false,
+  mode = "player",
   selectedTargetId,
+  pendingAction,
   onDeclareAction,
-  onDeclareBuiltIn
+  onDeclareBuiltIn,
+  onResolveAction,
+  onRollUtilityAction,
+  onResolvePendingAction
 }: {
   activeCombatant: Combatant | null;
   canDeclare: boolean;
+  canResolve?: boolean;
+  mode?: CommandMenuMode;
   selectedTargetId: string | null;
+  pendingAction?: CombatEncounter["pendingAction"];
   onDeclareAction?: (actionId: string, targetId?: string | null) => void;
   onDeclareBuiltIn?: (command: BuiltinCommandId, targetId?: string | null) => void;
+  onResolveAction?: (actionId: string) => void | Promise<void>;
+  onRollUtilityAction?: (action: CombatAction) => void | Promise<void>;
+  onResolvePendingAction?: () => void | Promise<void>;
 }) {
+  const isGm = mode === "gm";
+  const resolvablePending = isGm && isResolvablePendingAction(pendingAction);
   const [phase, setPhase] = useState<MenuPhase>("root");
   const [activeCommand, setActiveCommand] = useState<RpgCommandId | null>(null);
   const [selectedAction, setSelectedAction] = useState<CombatAction | null>(null);
@@ -67,8 +84,19 @@ export function CommandMenu({
   return (
     <GlassPanel level="secondary" className="p-4 sm:p-5">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        Command Menu
+        {isGm ? "GM Command Menu" : "Command Menu"}
       </h2>
+
+      {resolvablePending && onResolvePendingAction ? (
+        <button
+          className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-md border border-emerald-500/40 bg-emerald-700/25 text-sm font-semibold text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!canResolve}
+          onClick={() => void onResolvePendingAction()}
+          type="button"
+        >
+          Resolve pending attack
+        </button>
+      ) : null}
 
       {!activeCombatant ? (
         <p className="mt-4 text-sm text-muted-foreground">No active combatant.</p>
@@ -156,7 +184,9 @@ export function CommandMenu({
             <ConfirmPanel
               activeCommand={activeCommand}
               canDeclare={canDeclare}
+              canResolve={canResolve}
               commandLabel={commandLabel ?? ""}
+              isGm={isGm}
               onBack={() => {
                 if (isBuiltinCommand(activeCommand)) {
                   resetToRoot();
@@ -167,6 +197,8 @@ export function CommandMenu({
               }}
               onDeclareAction={onDeclareAction}
               onDeclareBuiltIn={onDeclareBuiltIn}
+              onResolveAction={onResolveAction}
+              onRollUtilityAction={onRollUtilityAction}
               selectedAction={selectedAction}
               selectedTargetId={selectedTargetId}
             />
@@ -180,19 +212,27 @@ export function CommandMenu({
 function ConfirmPanel({
   activeCommand,
   canDeclare,
+  canResolve,
   commandLabel,
+  isGm,
   onBack,
   onDeclareAction,
   onDeclareBuiltIn,
+  onResolveAction,
+  onRollUtilityAction,
   selectedAction,
   selectedTargetId
 }: {
   activeCommand: RpgCommandId;
   canDeclare: boolean;
+  canResolve: boolean;
   commandLabel: string;
+  isGm: boolean;
   onBack: () => void;
   onDeclareAction?: (actionId: string, targetId?: string | null) => void;
   onDeclareBuiltIn?: (command: BuiltinCommandId, targetId?: string | null) => void;
+  onResolveAction?: (actionId: string) => void | Promise<void>;
+  onRollUtilityAction?: (action: CombatAction) => void | Promise<void>;
   selectedAction: CombatAction | null;
   selectedTargetId: string | null;
 }) {
@@ -213,15 +253,17 @@ function ConfirmPanel({
         <p className="text-lg font-semibold text-foreground">{builtin.label}</p>
         <p className="mt-2 text-sm text-muted-foreground">{builtin.description}</p>
         <p className="mt-3 text-xs text-muted-foreground">
-          No automatic rules yet — this sends a declaration to the GM.
+          {isGm
+            ? "Record this stance in the combat log."
+            : "No automatic rules yet — this sends a declaration to the GM."}
         </p>
         <button
           className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-md border border-cyan-500/35 bg-cyan-700/20 text-sm font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
-          disabled={!canDeclare}
+          disabled={isGm ? !canResolve : !canDeclare}
           onClick={() => void onDeclareBuiltIn?.(activeCommand, selectedTargetId ?? undefined)}
           type="button"
         >
-          Declare {builtin.label}
+          {isGm ? `Record ${builtin.label}` : `Declare ${builtin.label}`}
         </button>
         {!canDeclare ? (
           <p className="mt-2 text-xs text-muted-foreground">
@@ -263,22 +305,55 @@ function ConfirmPanel({
         ))}
       </div>
       {missingTarget ? (
-        <p className="mt-4 text-sm text-amber-100">Select a target before declaring this attack.</p>
+        <p className="mt-4 text-sm text-amber-100">
+          {isGm
+            ? "Select a target before resolving this attack."
+            : "Select a target before declaring this attack."}
+        </p>
       ) : null}
-      <button
-        className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-md border border-cyan-500/35 bg-cyan-700/20 text-sm font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={!canDeclare || missingTarget}
-        onClick={() =>
-          void onDeclareAction?.(selectedAction.id, selectedTargetId ?? undefined)
-        }
-        type="button"
-      >
-        Declare {selectedAction.label}
-      </button>
-      {!canDeclare ? (
+      <div className="mt-4 flex flex-col gap-2">
+        {isGm && selectedAction.kind === "attack" ? (
+          <button
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-700/25 text-sm font-semibold text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!canResolve || missingTarget}
+            onClick={() => void onResolveAction?.(selectedAction.id)}
+            type="button"
+          >
+            <Dices className="h-4 w-4" aria-hidden="true" />
+            Resolve {selectedAction.label}
+          </button>
+        ) : null}
+        {isGm && selectedAction.kind === "utility" ? (
+          <button
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-purple-500/35 bg-purple-600/20 text-sm font-semibold text-purple-100 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!canResolve || !onRollUtilityAction}
+            onClick={() => void onRollUtilityAction?.(selectedAction)}
+            type="button"
+          >
+            <Dices className="h-4 w-4" aria-hidden="true" />
+            Roll {selectedAction.label}
+          </button>
+        ) : null}
+        {!isGm || canDeclare ? (
+          <button
+            className="inline-flex h-10 w-full items-center justify-center rounded-md border border-cyan-500/35 bg-cyan-700/20 text-sm font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={!canDeclare || (selectedAction.kind === "attack" && missingTarget)}
+            onClick={() =>
+              void onDeclareAction?.(selectedAction.id, selectedTargetId ?? undefined)
+            }
+            type="button"
+          >
+            {isGm ? `Record declare: ${selectedAction.label}` : `Declare ${selectedAction.label}`}
+          </button>
+        ) : null}
+      </div>
+      {!canDeclare && !isGm ? (
         <p className="mt-2 text-xs text-muted-foreground">
           You cannot declare for this combatant right now.
         </p>
+      ) : null}
+      {isGm && !canResolve ? (
+        <p className="mt-2 text-xs text-muted-foreground">GM resolve is unavailable.</p>
       ) : null}
     </div>
   );

@@ -11,13 +11,17 @@ export function TargetGrid({
   selectedTargetId,
   combatFeedback,
   flashToken,
-  onSelectTarget
+  onSelectTarget,
+  showAllTargets,
+  onShowAllTargetsChange
 }: {
   validTargets: Combatant[];
   selectedTargetId: string | null;
   combatFeedback?: CombatUiFeedback | null;
   flashToken?: number | string;
   onSelectTarget: (targetId: string | null) => void;
+  showAllTargets?: boolean;
+  onShowAllTargetsChange?: (value: boolean) => void;
 }) {
   const targetableIds = new Set(validTargets.map((entry) => entry.id));
   const uniqueTargets = validTargets;
@@ -33,10 +37,22 @@ export function TargetGrid({
             Tap a card or use the dropdown to lock your target before declaring attacks.
           </p>
         </div>
-        <label className="sr-only" htmlFor="combat-target-select">
-          Target selector
-        </label>
-        <select
+        <div className="flex flex-wrap items-center gap-3">
+          {onShowAllTargetsChange ? (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                checked={showAllTargets}
+                className="accent-purple-400"
+                onChange={(event) => onShowAllTargetsChange(event.target.checked)}
+                type="checkbox"
+              />
+              Show hidden
+            </label>
+          ) : null}
+          <label className="sr-only" htmlFor="combat-target-select">
+            Target selector
+          </label>
+          <select
           className="h-10 min-w-[12rem] rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
           id="combat-target-select"
           onChange={(event) => onSelectTarget(event.target.value || null)}
@@ -49,6 +65,7 @@ export function TargetGrid({
             </option>
           ))}
         </select>
+        </div>
       </div>
 
       {validTargets.length === 0 ? (
