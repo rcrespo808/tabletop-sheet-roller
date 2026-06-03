@@ -15,18 +15,19 @@ if [ -z "${NEXT_PUBLIC_SITE_URL:-}" ]; then
 fi
 CONFIRM_URL="${SITE_URL}/auth/confirm"
 
-# Keep local dev and Vercel preview redirects allowed alongside production.
-URI_ALLOW_LIST="$(printf '%s\n' \
-  "${CONFIRM_URL}" \
-  "http://localhost:3000/auth/confirm" \
-  "http://127.0.0.1:3000/auth/confirm" \
-  "https://127.0.0.1:3000/auth/confirm" \
-  "https://*-*.vercel.app/auth/confirm")"
-
 payload="$(jq -n \
   --arg site_url "$SITE_URL" \
-  --arg uri_allow_list "$URI_ALLOW_LIST" \
-  '{site_url: $site_url, uri_allow_list: $uri_allow_list}')"
+  --arg confirm_url "$CONFIRM_URL" \
+  '{
+    site_url: $site_url,
+    uri_allow_list: [
+      $confirm_url,
+      "http://localhost:3000/auth/confirm",
+      "http://127.0.0.1:3000/auth/confirm",
+      "https://127.0.0.1:3000/auth/confirm",
+      "https://*-*.vercel.app/auth/confirm"
+    ] | join("\n")
+  }')"
 
 echo "Syncing Supabase auth config for project ${SUPABASE_PROJECT_ID}"
 echo "  site_url=${SITE_URL}"
