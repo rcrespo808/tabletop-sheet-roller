@@ -1,8 +1,10 @@
 import { createRollLogEntry } from "@/lib/dice/log";
 import { rollDndExpression } from "@/lib/dice/dnd";
 import { rollNwodPool } from "@/lib/dice/nwod";
+import type { RandomSource } from "@/lib/dice/types";
 import type { CombatAction, CombatEncounter, Combatant } from "@/lib/combat/types";
 import { appendCombatHistory, applyDamage, makeCombatLogEntry } from "@/lib/combat/combatEngine";
+import { isResolvablePendingAction } from "@/lib/combat/combatFlow";
 import type { RollLogEntry } from "@/lib/sheets/types";
 
 export type CombatResolutionResult = {
@@ -97,17 +99,22 @@ function summarizeNwod(
   ].join("\n");
 }
 
-export function resolveCombatAction({
-  encounter,
-  attackerId,
-  targetId,
-  actionId
-}: {
+export type ResolveCombatActionInput = {
   encounter: CombatEncounter;
   attackerId: string;
   targetId: string;
   actionId: string;
-}): CombatResolutionResult {
+  /** Injectable for deterministic tests. */
+  random?: RandomSource;
+};
+
+export function resolveCombatAction({
+  encounter,
+  attackerId,
+  targetId,
+  actionId,
+  random
+}: ResolveCombatActionInput): CombatResolutionResult {
   const attacker = findCombatant(encounter, attackerId);
   const target = findCombatant(encounter, targetId);
   if (!attacker || !target) {
@@ -131,7 +138,7 @@ export function resolveCombatAction({
   const targetBeforeHp = target.currentHp ?? target.maxHp ?? 0;
 
   if (action.system === "dnd5e" && action.kind === "attack") {
-    const attackResult = rollDndExpression(action.attackRoll);
+    const attackResult = rollDndExpression(action.attackRoll, random);
     const attackTotal = attackResult.total;
     const crit = attackResult.dice[0] === 20;
     const hit = attackResult.dice[0] !== 1 && (crit || attackTotal >= getDefenseValue(target));
@@ -141,7 +148,7 @@ export function resolveCombatAction({
 
     if (hit) {
       const damageExpression = crit ? critMultiplyDamage(action.damageRoll) : action.damageRoll;
-      const damageResult = rollDndExpression(damageExpression);
+      const damageResult = rollDndExpression(damageExpression, random);
       damageApplied = damageResult.total;
       targetAfter = applyDamage(target, damageApplied);
       nextEncounter = replaceCombatant(nextEncounter, targetAfter);
@@ -234,12 +241,15 @@ export function resolveCombatAction({
   );
   const defense = target.defense ?? 0;
   const finalPool = Math.max(0, basePool - defense);
-  const poolResult = rollNwodPool({
-    pool: finalPool,
-    again: nwodAction.again,
-    rote: nwodAction.rote,
-    chanceDie: finalPool <= 0
-  });
+  const poolResult = rollNwodPool(
+    {
+      pool: finalPool,
+      again: nwodAction.again,
+      rote: nwodAction.rote,
+      chanceDie: finalPool <= 0
+    },
+    random
+  );
   const successes = poolResult.successes;
   const armor = target.armor ?? 0;
   const totalDamage = Math.max(0, successes + (nwodAction.damage ?? 0) - armor);
@@ -320,4 +330,23 @@ export function resolveCombatAction({
     }),
     details
   };
+}
+
+/** Resolve the encounter's pending attack using stored actor, target, and action ids. */
+export function resolvePendingCombatAction(
+  encounter: CombatEncounter,
+  options?: { random?: RandomSource }
+): CombatResolutionResult {
+  const pending = encounter.pendingAction;
+  if (!isResolvablePendingAction(pending)) {
+    throw new Error("Pending action needs an attack with actor and target.");
+  }
+
+  return resolveCombatAction({
+    encounter,
+    attackerId: pending.combatantId,
+    targetId: pending.targetId,
+    actionId: pending.actionId,
+    random: options?.random
+  });
 }

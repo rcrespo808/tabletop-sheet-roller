@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
+  ScrollText,
   Skull,
   Sparkles,
   Swords,
@@ -15,6 +16,8 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { AuthPanel } from "@/components/AuthPanel";
 import { CombatActionPanel } from "@/components/combat/CombatActionPanel";
+import { CombatHistoryList } from "@/components/combat/CombatHistoryList";
+import { CombatLogDrawer } from "@/components/combat/CombatLogDrawer";
 import { CombatModeTabs, type CombatMode } from "@/components/combat/CombatModeTabs";
 import { GmCombatScreen } from "@/components/combat/GmCombatScreen";
 import { PlayerCombatScreen } from "@/components/combat/PlayerCombatScreen";
@@ -48,7 +51,18 @@ import {
   saveEncounter
 } from "@/lib/combat/combatRepository";
 import { listNpcTemplates } from "@/lib/combat/npcTemplates";
-import { resolveCombatAction } from "@/lib/combat/resolveCombatAction";
+import {
+  createCombatActionStatus,
+  deriveCombatFlowPhase,
+  isResolvablePendingAction
+} from "@/lib/combat/combatFlow";
+import type { CombatActionStatus, CombatFlowPhase } from "@/lib/combat/combatFlow";
+import { CombatFlowHint } from "@/components/combat/CombatFlowHint";
+import {
+  resolveCombatAction,
+  resolvePendingCombatAction,
+  type CombatResolutionResult
+} from "@/lib/combat/resolveCombatAction";
 import type { BuiltinCommandId } from "@/lib/combat/rpgmActionCatalog";
 import type {
   Combatant,
@@ -150,6 +164,9 @@ export default function CombatPage() {
   const [addPanelOpen, setAddPanelOpen] = useState(false);
   const [dangerPanelOpen, setDangerPanelOpen] = useState(false);
   const [rollLogOpen, setRollLogOpen] = useState(false);
+  const [combatLogOpen, setCombatLogOpen] = useState(false);
+  const [actionStatus, setActionStatus] = useState<CombatActionStatus | null>(null);
+  const [showResolvedFeedback, setShowResolvedFeedback] = useState(false);
   const [entries, setEntries] = useState<RollLogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [authState, setAuthState] = useState<AuthState | null>(null);
@@ -191,9 +208,15 @@ export default function CombatPage() {
       listCharacters()
     ]);
     setEncounters(loadedEncounters);
-    setActiveEncounter((current) =>
-      current ? loadedEncounters.find((encounter) => encounter.id === current.id) ?? current : current
-    );
+    setActiveEncounter((current) => {
+      const next = current
+        ? loadedEncounters.find((encounter) => encounter.id === current.id) ?? current
+        : current;
+      if (next && combatMode === "player") {
+        syncPlayerActionStatus(next, authState?.user?.id);
+      }
+      return next;
+    });
     setCharacters(loadedCharacters);
     setLoading(false);
   };
@@ -241,6 +264,78 @@ export default function CombatPage() {
   async function addLogEntry(entry: RollLogEntry) {
     setEntries((current) => [entry, ...current]);
     await saveRollLog(COMBAT_ROOM, entry);
+  }
+
+  async function applyResolutionResult(
+    result: CombatResolutionResult,
+    previousEncounter: CombatEncounter
+  ) {
+    const targetId = String(result.details.targetId ?? "");
+    const resolvedEncounter = {
+      ...result.encounter,
+      pendingAction: null
+    };
+    setRecentResult({
+      summary: result.summary,
+      targetId,
+      targetBeforeHp: Number(result.details.targetBeforeHp ?? 0),
+      targetAfterHp: Number(result.details.targetAfterHp ?? 0),
+      details: result.details
+    });
+    setShowResolvedFeedback(true);
+    const headline = result.hit
+      ? `Hit! ${result.damageApplied ?? 0} damage applied.`
+      : "Miss — no damage applied.";
+    setActionStatus(createCombatActionStatus("resolved", headline));
+    await persistEncounter(resolvedEncounter, { logNewHistoryFrom: previousEncounter });
+    await addLogEntry(result.logEntry);
+  }
+
+  function syncPlayerActionStatus(encounter: CombatEncounter, userId: string | undefined) {
+    if (!userId) return;
+    const pending = encounter.pendingAction;
+    if (pending?.declaredByUserId === userId) {
+      const target = encounter.combatants.find((c) => c.id === pending.targetId);
+      const label =
+        pending.actionId &&
+        encounter.combatants
+          .find((c) => c.id === pending.combatantId)
+          ?.combatActions.find((a) => a.id === pending.actionId)?.label;
+      setActionStatus(
+        createCombatActionStatus(
+          "declared",
+          `${label ?? pending.actionLabel ?? "Action"} submitted${
+            target ? ` on ${target.instanceName}` : ""
+          }. Waiting for GM to resolve.`
+        )
+      );
+      return;
+    }
+
+    const latest = encounter.actionHistory?.[0];
+    const resultType =
+      latest?.details && typeof latest.details === "object"
+        ? (latest.details as Record<string, unknown>).resultType
+        : undefined;
+    if (
+      latest &&
+      (resultType === "attack_hit" ||
+        resultType === "attack_miss" ||
+        resultType === "damage" ||
+        resultType === "healing")
+    ) {
+      setActionStatus(
+        createCombatActionStatus("resolved", latest.summary.split("\n")[0] ?? latest.summary)
+      );
+      setShowResolvedFeedback(true);
+    }
+  }
+
+  function handleSelectTargetId(targetId: string) {
+    setSelectedTargetId(targetId);
+    setShowResolvedFeedback(false);
+    if (!targetId && actionStatus?.kind === "declared") return;
+    if (!targetId) setActionStatus(null);
   }
 
   async function handleNewEncounter() {
@@ -411,13 +506,28 @@ export default function CombatPage() {
 
   async function handleDeclareCurrentAction(actionId: string, targetId?: string | null) {
     if (!activeEncounter || !currentCombatant) return;
-    const resolvedTargetId = targetId ?? effectiveSelectedTargetId;
+    const resolvedTargetId = targetId ?? selectedTargetId;
+    if (!resolvedTargetId) {
+      setActionStatus(
+        createCombatActionStatus("error", "Select a target before declaring an attack.")
+      );
+      return;
+    }
+    const action = currentCombatant.combatActions.find((entry) => entry.id === actionId);
+    const target = activeEncounter.combatants.find((entry) => entry.id === resolvedTargetId);
     const declared = declarePendingAction(activeEncounter, {
       combatantId: currentCombatant.id,
       declaredByUserId: authState?.user?.id,
       actionId,
-      targetId: resolvedTargetId || undefined
+      targetId: resolvedTargetId
     });
+    setSelectedTargetId(resolvedTargetId);
+    setActionStatus(
+      createCombatActionStatus(
+        "declared",
+        `${action?.label ?? "Action"} submitted on ${target?.instanceName ?? "target"}. Waiting for GM to resolve.`
+      )
+    );
     await persistEncounter(declared, { logNewHistoryFrom: activeEncounter });
   }
 
@@ -428,7 +538,7 @@ export default function CombatPage() {
       wait: "Wait",
       flee: "Flee"
     };
-    const resolvedTargetId = targetId ?? effectiveSelectedTargetId;
+    const resolvedTargetId = targetId ?? selectedTargetId;
     const declared = declarePendingAction(activeEncounter, {
       combatantId: currentCombatant.id,
       declaredByUserId: authState?.user?.id,
@@ -436,12 +546,21 @@ export default function CombatPage() {
       note: labels[command],
       targetId: resolvedTargetId || undefined
     });
+    setActionStatus(
+      createCombatActionStatus(
+        "declared",
+        `${labels[command]} submitted. Waiting for GM.`
+      )
+    );
     await persistEncounter(declared, { logNewHistoryFrom: activeEncounter });
   }
 
   async function handleClearPendingAction() {
     if (!activeEncounter) return;
     const cleared = clearPendingAction(activeEncounter);
+    setActionStatus(
+      createCombatActionStatus("pending_cleared", "Pending action cleared by GM.")
+    );
     await persistEncounter(cleared, { logNewHistoryFrom: activeEncounter });
   }
 
@@ -452,8 +571,11 @@ export default function CombatPage() {
 
   async function handleResolveCurrentAction(actionId: string) {
     if (!activeEncounter || !currentCombatant) return;
-    const selected = effectiveSelectedTargetId;
-    if (!selected) return;
+    const selected = selectedTargetId || activeEncounter.pendingAction?.targetId || "";
+    if (!selected) {
+      setActionStatus(createCombatActionStatus("error", "Select a target before resolving."));
+      return;
+    }
 
     try {
       const result = resolveCombatAction({
@@ -462,24 +584,37 @@ export default function CombatPage() {
         targetId: selected,
         actionId
       });
-      const resolvedEncounter = {
-        ...result.encounter,
-        pendingAction: null
-      };
-      setRecentResult({
-        summary: result.summary,
-        targetId: selected,
-        targetBeforeHp: Number(result.details.targetBeforeHp ?? 0),
-        targetAfterHp: Number(result.details.targetAfterHp ?? 0),
-        details: result.details
-      });
-      await persistEncounter(resolvedEncounter);
-      await addLogEntry(result.logEntry);
+      await applyResolutionResult(result, activeEncounter);
     } catch (error) {
-      setRecentResult({
-        summary: error instanceof Error ? error.message : "This action cannot be resolved automatically.",
-        targetId: selected
-      });
+      const message =
+        error instanceof Error ? error.message : "This action cannot be resolved automatically.";
+      setRecentResult({ summary: message, targetId: selected });
+      setActionStatus(createCombatActionStatus("error", message));
+    }
+  }
+
+  async function handleResolvePendingAction() {
+    if (!activeEncounter || !gmUser) return;
+    if (!isResolvablePendingAction(activeEncounter.pendingAction)) {
+      setActionStatus(
+        createCombatActionStatus(
+          "error",
+          "Pending action cannot be auto-resolved (needs attack + target)."
+        )
+      );
+      return;
+    }
+
+    const pending = activeEncounter.pendingAction;
+    setSelectedTargetId(pending.targetId);
+
+    try {
+      const result = resolvePendingCombatAction(activeEncounter);
+      await applyResolutionResult(result, activeEncounter);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to resolve pending action.";
+      setActionStatus(createCombatActionStatus("error", message));
     }
   }
 
@@ -541,9 +676,16 @@ export default function CombatPage() {
     selectedTargetId ||
     (activeEncounter?.pendingAction?.combatantId === currentCombatant?.id
       ? activeEncounter?.pendingAction?.targetId ?? ""
-      : currentCombatant?.targetIds[0] ?? "");
+      : "");
   const selectedTarget =
     activeEncounter?.combatants.find((entry) => entry.id === effectiveSelectedTargetId) ?? null;
+  const combatFlowPhase = deriveCombatFlowPhase({
+    hasActiveEncounter: Boolean(activeEncounter && activeEncounter.status === "active"),
+    selectedTargetId: effectiveSelectedTargetId,
+    pendingAction: activeEncounter?.pendingAction,
+    activeCombatantId: currentCombatant?.id,
+    showResolvedFeedback
+  });
   const validTargets =
     activeEncounter && currentCombatant
       ? getValidTargets(activeEncounter, currentCombatant, { showAll: showAllTargets })
@@ -590,6 +732,15 @@ export default function CombatPage() {
                 <Sparkles className="h-4 w-4" aria-hidden="true" />
                 Gallery
               </Link>
+              <button
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={!activeEncounter}
+                onClick={() => setCombatLogOpen(true)}
+                type="button"
+              >
+                <ScrollText className="h-4 w-4" aria-hidden="true" />
+                Combat Log
+              </button>
               <button
                 className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
                 onClick={() => setRollLogOpen(true)}
@@ -728,9 +879,11 @@ export default function CombatPage() {
               onClearPendingAction={handleClearPendingAction}
               onEndTurn={handleAdvanceTurn}
               onNextTurn={handleAdvanceTurn}
+              flowPhase={combatFlowPhase}
               onResolveAction={handleResolveCurrentAction}
+              onResolvePendingAction={handleResolvePendingAction}
               onRollUtilityAction={handleRollUtilityAction}
-              onSelectedTargetIdChange={setSelectedTargetId}
+              onSelectedTargetIdChange={handleSelectTargetId}
               selectedTarget={selectedTarget}
               selectedTargetId={effectiveSelectedTargetId}
               showAllTargets={showAllTargets}
@@ -852,11 +1005,27 @@ export default function CombatPage() {
               onHeal={handleManualHealing}
               onMakeActive={handleMakeActive}
               onStatus={handleStatusChange}
-              onTarget={(id) => setSelectedTargetId(id)}
+              onTarget={(id) => handleSelectTargetId(id)}
             />
 
             {combatMode === "gm" ? (
-              <CombatHistoryPanel entries={activeEncounter.actionHistory ?? []} />
+              <GlassPanel level="secondary" className="p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-lg font-semibold text-foreground">Combat History</h2>
+                  <button
+                    className="text-xs font-semibold text-cyan-200 hover:underline"
+                    onClick={() => setCombatLogOpen(true)}
+                    type="button"
+                  >
+                    Open full log
+                  </button>
+                </div>
+                <CombatHistoryList
+                  className="mt-4 max-h-72"
+                  entries={activeEncounter.actionHistory ?? []}
+                  maxEntries={30}
+                />
+              </GlassPanel>
             ) : null}
           </CombatModeContent>
         ) : combatMode !== "player" ? (
@@ -877,7 +1046,9 @@ export default function CombatPage() {
               onDeclareAction={handleDeclareCurrentAction}
               onDeclareBuiltIn={handleDeclareBuiltIn}
               onRefresh={refresh}
-              onSelectedTargetIdChange={setSelectedTargetId}
+              actionStatus={actionStatus}
+              flowPhase={combatFlowPhase}
+              onSelectedTargetIdChange={handleSelectTargetId}
               ownedCombatants={playerOwnedCombatants}
               recentResult={recentResult}
               selectedTargetId={effectiveSelectedTargetId}
@@ -890,6 +1061,13 @@ export default function CombatPage() {
           )
         ) : null}
       </div>
+
+      <CombatLogDrawer
+        encounterName={activeEncounter?.name}
+        entries={activeEncounter?.actionHistory ?? []}
+        onClose={() => setCombatLogOpen(false)}
+        open={combatLogOpen}
+      />
 
       {rollLogOpen ? (
         <div
@@ -1107,44 +1285,6 @@ function CombatRoster({
   );
 }
 
-function CombatHistoryPanel({ entries }: { entries: CombatLogEntry[] }) {
-  return (
-    <GlassPanel level="secondary" className="p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-foreground">Combat History</h2>
-        <span className="text-xs text-muted-foreground">{entries.length} entries</span>
-      </div>
-      <div className="mt-4 max-h-72 space-y-2 overflow-y-auto pr-1">
-        {entries.length === 0 ? (
-          <p className="rounded-md border border-dashed border-slate-700/25 p-4 text-sm text-muted-foreground">
-            No combat events recorded yet.
-          </p>
-        ) : (
-          entries.slice(0, 30).map((entry) => (
-            <article
-              className="rounded-md border border-slate-700/20 bg-slate-950/35 p-3"
-              key={entry.id}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase text-red-100">
-                  Round {entry.round} · Turn {entry.turnIndex + 1}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {new Intl.DateTimeFormat(undefined, {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                  }).format(new Date(entry.createdAt))}
-                </p>
-              </div>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-slate-100">{entry.summary}</p>
-            </article>
-          ))
-        )}
-      </div>
-    </GlassPanel>
-  );
-}
-
 function ActiveTurnPanel({
   activeCombatant,
   canResolve,
@@ -1157,11 +1297,13 @@ function ActiveTurnPanel({
   setShowAllTargets,
   onSelectedTargetIdChange,
   onResolveAction,
+  onResolvePendingAction,
   onDeclareAction,
   onClearPendingAction,
   onRollUtilityAction,
   onEndTurn,
-  onNextTurn
+  onNextTurn,
+  flowPhase
 }: {
   activeCombatant: Combatant | null;
   canResolve: boolean;
@@ -1174,11 +1316,13 @@ function ActiveTurnPanel({
   setShowAllTargets: (value: boolean) => void;
   onSelectedTargetIdChange: (value: string) => void;
   onResolveAction: (actionId: string) => void | Promise<void>;
+  onResolvePendingAction: () => void | Promise<void>;
   onDeclareAction: (actionId: string) => void | Promise<void>;
   onClearPendingAction: () => void | Promise<void>;
   onRollUtilityAction: (action: CombatAction) => void | Promise<void>;
   onEndTurn: () => void | Promise<void>;
   onNextTurn: () => void | Promise<void>;
+  flowPhase: CombatFlowPhase;
 }) {
   const actions = activeCombatant?.combatActions ?? [];
   const pendingActionLabel = pendingAction?.actionId
@@ -1231,13 +1375,17 @@ function ActiveTurnPanel({
         </div>
       </div>
 
+      <CombatFlowHint phase={flowPhase} />
+
       <div className="mt-4 grid gap-4 lg:grid-cols-[1.3fr_1fr]">
         <div className="rounded-md border border-slate-700/25 bg-slate-950/30 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-foreground">Target</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {selectedTarget ? "Target selected" : "Select a target to resolve attacks."}
+                {selectedTarget
+                  ? "Target locked for resolve."
+                  : "Step 1 — pick a target, then resolve or confirm pending."}
               </p>
             </div>
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1279,13 +1427,15 @@ function ActiveTurnPanel({
             canResolve={canResolve}
             onDeclareAction={onDeclareAction}
             onResolveAction={onResolveAction}
+            onResolvePendingAction={onResolvePendingAction}
             onRollUtilityAction={onRollUtilityAction}
+            pendingAction={pendingAction}
             selectedTargetId={selectedTargetId}
           />
           {pendingAction ? (
             <div className="mt-4 rounded-md border border-cyan-500/30 bg-cyan-950/30 p-3 text-sm text-cyan-100">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <p className="font-semibold">Pending action waiting for GM.</p>
+                <p className="font-semibold">Pending player action</p>
                 <button
                   className="rounded border border-cyan-400/40 px-2 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"
                   disabled={!canResolve}
@@ -1300,11 +1450,13 @@ function ActiveTurnPanel({
                 {selectedTarget?.instanceName ?? pendingAction.targetId ?? "target"} with{" "}
                 {pendingActionLabel ?? pendingAction.actionId ?? "action"}.
               </p>
+              {isResolvablePendingAction(pendingAction) && canResolve ? (
+                <p className="mt-2 text-xs text-emerald-100">
+                  Use Resolve pending above to roll attack vs AC and apply damage.
+                </p>
+              ) : null}
             </div>
           ) : null}
-          <div className="mt-4 rounded-md border border-slate-700/25 bg-slate-900/50 p-3 text-sm text-muted-foreground">
-            Action resolved. GM may end turn when ready.
-          </div>
         </div>
       </div>
     </GlassPanel>

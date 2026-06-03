@@ -6,6 +6,7 @@ import { RpgCombatShell } from "@/components/combat/rpgm/RpgCombatShell";
 import { GlassPanel } from "@/components/GlassPanel";
 import type { BuiltinCommandId } from "@/lib/combat/rpgmActionCatalog";
 import type { CombatEncounter, Combatant } from "@/lib/combat/types";
+import type { CombatActionStatus, CombatFlowPhase } from "@/lib/combat/combatFlow";
 import type { RpgRecentResult } from "@/lib/combat/rpgmCombatFeedback";
 
 export function PlayerCombatScreen({
@@ -20,7 +21,9 @@ export function PlayerCombatScreen({
   ownedCombatants,
   recentResult,
   selectedTargetId,
-  validTargets
+  validTargets,
+  flowPhase,
+  actionStatus
 }: {
   activeCombatant: Combatant | null;
   canDeclare: boolean;
@@ -34,6 +37,8 @@ export function PlayerCombatScreen({
   recentResult?: RpgRecentResult | null;
   selectedTargetId: string;
   validTargets: Combatant[];
+  flowPhase: CombatFlowPhase;
+  actionStatus: CombatActionStatus | null;
 }) {
   return (
     <section className="space-y-4 sm:space-y-6" aria-label="Player combat screen">
@@ -84,6 +89,8 @@ export function PlayerCombatScreen({
         onDeclareAction={(actionId, targetId) => void onDeclareAction(actionId, targetId)}
         onDeclareBuiltIn={(command, targetId) => void onDeclareBuiltIn(command, targetId)}
         onSelectTarget={(targetId) => onSelectedTargetIdChange(targetId ?? "")}
+        actionStatus={actionStatus}
+        flowPhase={flowPhase}
         recentResult={recentResult}
         selectedTargetId={selectedTargetId || null}
         validTargets={validTargets}

@@ -3,6 +3,8 @@
 import { Dices, FileText, Package, Target } from "lucide-react";
 import type { CombatAction, Combatant } from "@/lib/combat/types";
 import { canAct } from "@/lib/combat/combatEngine";
+import { isResolvablePendingAction } from "@/lib/combat/combatFlow";
+import type { CombatEncounter } from "@/lib/combat/types";
 
 type ActionGroup = {
   id: "attacks" | "utility" | "items" | "notes";
@@ -54,18 +56,23 @@ export function CombatActionPanel({
   canDeclare,
   canResolve,
   selectedTargetId,
+  pendingAction,
   onDeclareAction,
   onResolveAction,
+  onResolvePendingAction,
   onRollUtilityAction
 }: {
   activeCombatant: Combatant | null;
   canDeclare: boolean;
   canResolve: boolean;
   selectedTargetId: string;
+  pendingAction?: CombatEncounter["pendingAction"];
   onDeclareAction: (actionId: string) => void | Promise<void>;
   onResolveAction: (actionId: string) => void | Promise<void>;
+  onResolvePendingAction?: () => void | Promise<void>;
   onRollUtilityAction?: (action: CombatAction) => void | Promise<void>;
 }) {
+  const resolvablePending = isResolvablePendingAction(pendingAction);
   const actions = activeCombatant?.combatActions ?? [];
   const grouped = groupActions(actions);
   const canUseActions = Boolean(activeCombatant && canAct(activeCombatant));
@@ -80,6 +87,15 @@ export function CombatActionPanel({
 
   return (
     <div className="mt-3 space-y-4">
+      {resolvablePending && canResolve && onResolvePendingAction ? (
+        <button
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-700/25 text-sm font-semibold text-emerald-100"
+          onClick={() => void onResolvePendingAction()}
+          type="button"
+        >
+          Resolve pending attack (roll and apply damage)
+        </button>
+      ) : null}
       {grouped.map((group) => (
         <div className="space-y-2" key={group.id}>
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">

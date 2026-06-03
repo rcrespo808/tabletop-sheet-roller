@@ -24,10 +24,11 @@ export function TargetCard({
   hpHighlight?: { hpBefore: number; hpAfter: number; damageApplied?: number } | null;
   isSelected: boolean;
   isTargetable: boolean;
-  onSelect: () => void;
+  onSelect?: () => void;
 }) {
   const dimmed = isDimmedCombatant(combatant.status);
-  const disabled = !isTargetable || dimmed;
+  const disabled = !onSelect || !isTargetable || dimmed;
+  const Wrapper = onSelect ? "button" : "div";
   const damageAmount =
     hpHighlight && hpHighlight.hpAfter < hpHighlight.hpBefore
       ? hpHighlight.hpBefore - hpHighlight.hpAfter
@@ -38,8 +39,8 @@ export function TargetCard({
       : 0;
 
   return (
-    <button
-      aria-pressed={isSelected}
+    <Wrapper
+      aria-pressed={onSelect ? isSelected : undefined}
       className={`relative min-w-[9.5rem] shrink-0 rounded-lg border p-3 text-left transition ${
         isSelected
           ? "border-amber-400/70 bg-amber-500/15 ring-2 ring-amber-400/50"
@@ -47,9 +48,9 @@ export function TargetCard({
       } ${dimmed ? "opacity-50" : ""} ${!isTargetable ? "cursor-default opacity-65" : ""} ${
         hpHighlight ? "rpgm-hp-flash" : ""
       }`}
-      disabled={disabled}
-      onClick={onSelect}
-      type="button"
+      {...(onSelect
+        ? { disabled, onClick: onSelect, type: "button" as const }
+        : { role: "group" })}
     >
       {damageAmount > 0 ? (
         <DamagePopup amount={damageAmount} flashToken={flashToken} kind="damage" />
@@ -65,11 +66,11 @@ export function TargetCard({
       <p className="mt-1 text-xs font-medium text-slate-200">Status: {STATUS_LABELS[combatant.status]}</p>
       {isSelected ? (
         <p className="mt-2 text-[10px] font-semibold uppercase text-amber-200">Selected</p>
-      ) : isTargetable ? (
+      ) : isTargetable && onSelect ? (
         <p className="mt-2 text-[10px] text-muted-foreground">Tap to target</p>
-      ) : (
+      ) : !onSelect ? null : (
         <p className="mt-2 text-[10px] text-muted-foreground">Not a valid target</p>
       )}
-    </button>
+    </Wrapper>
   );
 }

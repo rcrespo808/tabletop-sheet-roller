@@ -2,13 +2,15 @@
 
 import { useMemo } from "react";
 import { ActiveActorPanel } from "@/components/combat/rpgm/ActiveActorPanel";
-import { CombatMessageWindow } from "@/components/combat/rpgm/CombatMessageWindow";
+import { ActionStatusBanner } from "@/components/combat/ActionStatusBanner";
+import { CombatFlowHint } from "@/components/combat/CombatFlowHint";
 import { CommandMenu } from "@/components/combat/rpgm/CommandMenu";
 import { EnemyField } from "@/components/combat/rpgm/EnemyField";
 import { PartyStatusPanel } from "@/components/combat/rpgm/PartyStatusPanel";
 import { SelectedTargetBanner } from "@/components/combat/rpgm/SelectedTargetBanner";
 import { TargetGrid } from "@/components/combat/rpgm/TargetGrid";
 import type { CombatEncounter, Combatant } from "@/lib/combat/types";
+import type { CombatActionStatus, CombatFlowPhase } from "@/lib/combat/combatFlow";
 import type { BuiltinCommandId } from "@/lib/combat/rpgmActionCatalog";
 import {
   resolveCombatFeedback,
@@ -26,6 +28,8 @@ export type RpgCombatShellProps = {
   currentUserId?: string | null;
   canDeclare?: boolean;
   recentResult?: RpgRecentResult | null;
+  flowPhase?: CombatFlowPhase;
+  actionStatus?: CombatActionStatus | null;
 };
 
 export function RpgCombatShell({
@@ -38,7 +42,9 @@ export function RpgCombatShell({
   onDeclareBuiltIn,
   currentUserId,
   canDeclare = false,
-  recentResult
+  recentResult,
+  flowPhase = "idle",
+  actionStatus = null
 }: RpgCombatShellProps) {
   const combatFeedback = useMemo(
     () => resolveCombatFeedback(recentResult, encounter.actionHistory ?? []),
@@ -76,16 +82,17 @@ export function RpgCombatShell({
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6" aria-label="RPG combat interface">
+      <CombatFlowHint phase={flowPhase} />
+      <ActionStatusBanner status={actionStatus} />
       <EnemyField
         combatFeedback={combatFeedback}
+        displayOnly
         enemies={enemies}
         flashToken={flashToken}
-        onSelectTarget={onSelectTarget}
         selectedTargetId={selectedTargetId}
         targetableIds={targetableIds}
       />
       <TargetGrid
-        allCombatants={encounter.combatants}
         combatFeedback={combatFeedback}
         flashToken={flashToken}
         onSelectTarget={onSelectTarget}
@@ -93,7 +100,7 @@ export function RpgCombatShell({
         validTargets={validTargets}
       />
       <SelectedTargetBanner
-        needsTarget={!selectedTargetId}
+        needsTarget={flowPhase === "targeting"}
         onClearTarget={() => onSelectTarget(null)}
         selectedTarget={selectedTarget}
       />
@@ -116,13 +123,10 @@ export function RpgCombatShell({
         onDeclareBuiltIn={onDeclareBuiltIn}
         selectedTargetId={selectedTargetId}
       />
-      <CombatMessageWindow
-        actionHistory={encounter.actionHistory ?? []}
-        recentResult={recentResult}
-      />
       {encounter.pendingAction ? (
         <p className="rounded-md border border-cyan-500/30 bg-cyan-950/30 px-4 py-3 text-sm text-cyan-100">
-          Pending declaration is waiting for GM review.
+          Pending declaration is waiting for GM review. Open Combat Log in the header for full
+          history.
         </p>
       ) : null}
     </div>

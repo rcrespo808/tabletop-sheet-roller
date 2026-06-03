@@ -8,27 +8,19 @@ import { getHpHighlight, type CombatUiFeedback } from "@/lib/combat/rpgmCombatFe
 
 export function TargetGrid({
   validTargets,
-  allCombatants,
   selectedTargetId,
   combatFeedback,
   flashToken,
   onSelectTarget
 }: {
   validTargets: Combatant[];
-  allCombatants?: Combatant[];
   selectedTargetId: string | null;
   combatFeedback?: CombatUiFeedback | null;
   flashToken?: number | string;
   onSelectTarget: (targetId: string | null) => void;
 }) {
   const targetableIds = new Set(validTargets.map((entry) => entry.id));
-  const displayTargets = allCombatants?.length
-    ? allCombatants.filter((entry) => targetableIds.has(entry.id) || entry.team === "enemies")
-    : validTargets;
-
-  const uniqueTargets = Array.from(
-    new Map(displayTargets.map((entry) => [entry.id, entry])).values()
-  );
+  const uniqueTargets = validTargets;
 
   return (
     <GlassPanel level="secondary" className="p-4 sm:p-5">
@@ -38,7 +30,7 @@ export function TargetGrid({
             Select Target
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Choose a valid target for attacks. Skills and powers may not require a target.
+            Tap a card or use the dropdown to lock your target before declaring attacks.
           </p>
         </div>
         <label className="sr-only" htmlFor="combat-target-select">
