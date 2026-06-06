@@ -5,6 +5,12 @@ import {
   saveMarket
 } from "@/lib/markets/marketRepository";
 import {
+  getTable,
+  listTableAssignments,
+  listTableMembers
+} from "@/lib/session/gameTableRepository";
+import { resolveSeatRole } from "@/lib/session/resolveSeatRole";
+import {
   applyWalletDelta,
   canAffordPrice,
   marketPriceToDelta,
@@ -196,20 +202,49 @@ function makeRewardHistoryEntry(
   };
 }
 
-async function assertCanTransact(): Promise<string | undefined> {
+async function assertCanTransact(characterId: string, marketGameTableId?: string): Promise<string> {
   const authState = await getCurrentAuthState();
-  if (isSupabaseConfigured() && authState.profile?.userLevel !== "gm") {
-    throw new Error("Supabase market transactions are GM-mediated until player ownership checks are enabled.");
+  const userId = authState.user?.id;
+  if (!userId) throw new Error("Sign in to complete market transactions.");
+
+  if (!isSupabaseConfigured()) {
+    return userId;
   }
-  return authState.user?.id;
+
+  if (marketGameTableId) {
+    const [table, members, assignments] = await Promise.all([
+      getTable(marketGameTableId),
+      listTableMembers(marketGameTableId),
+      listTableAssignments(marketGameTableId)
+    ]);
+    const role = resolveSeatRole({
+      gameTableId: marketGameTableId,
+      userId,
+      profile: authState.profile,
+      table,
+      members
+    });
+    if (role === "gm") return userId;
+    const assigned = assignments.some(
+      (assignment) => assignment.userId === userId && assignment.characterId === characterId
+    );
+    if (assigned) return userId;
+    throw new Error("You need an assigned character at this table to buy or sell here.");
+  }
+
+  const character = await getCharacter(characterId);
+  if (character?.ownerUserId === userId) return userId;
+
+  throw new Error("You need an assigned character at this table to buy or sell here.");
 }
 
 export async function buyMarketItem(args: BuyMarketItemArgs): Promise<MarketTransactionResult> {
-  const userId = await assertCanTransact();
   const quantity = positiveQuantity(args.quantity);
   const market = await getMarket(args.marketId);
   if (!market) throw new Error("Market not found.");
   if (market.status !== "open") throw new Error("Closed or draft markets cannot be used for transactions.");
+
+  const userId = await assertCanTransact(args.characterId, market.gameTableId);
 
   const store = findStore(market, args.storeId);
   const stock = findStock(store, args.stockItemId);
@@ -268,11 +303,12 @@ export async function buyMarketItem(args: BuyMarketItemArgs): Promise<MarketTran
 }
 
 export async function sellInventoryItem(args: SellInventoryItemArgs): Promise<MarketTransactionResult> {
-  const userId = await assertCanTransact();
   const quantity = positiveQuantity(args.quantity);
   const market = await getMarket(args.marketId);
   if (!market) throw new Error("Market not found.");
   if (market.status !== "open") throw new Error("Closed or draft markets cannot be used for transactions.");
+
+  const userId = await assertCanTransact(args.characterId, market.gameTableId);
 
   const store = findStore(market, args.storeId);
   const character = await getCharacter(args.characterId);

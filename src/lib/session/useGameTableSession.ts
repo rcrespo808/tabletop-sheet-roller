@@ -8,53 +8,39 @@ import {
   type AppUserProfile,
   type AuthState
 } from "@/lib/auth/supabaseAuth";
-import { listCharacters } from "@/lib/storage/characterRepository";
-import { getSupabaseClient } from "@/lib/storage/supabaseClient";
 import {
+  getTable,
+  listTableAssignments,
+  listTableMembers
+} from "@/lib/session/gameTableRepository";
+import { resolveSeatRole } from "@/lib/session/resolveSeatRole";
+import type {
+  GameTable,
+  GameTableCharacterAssignment,
+  GameTableMember
+} from "@/lib/session/types";
+import { useGameTableAssignmentsRealtime } from "@/lib/session/useGameTableAssignmentsRealtime";
+import { useGameTableMembersRealtime } from "@/lib/session/useGameTableMembersRealtime";
+import {
+  canManageTable,
   createSeatContext,
   type SeatContext,
   type SeatRole
 } from "@/lib/session/permissions";
+import { isSupabaseConfigured } from "@/lib/storage/supabaseClient";
 
-export type GameTable = {
-  id: string;
-  ownerUserId?: string;
-  name: string;
-  slug: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-export type GameTableMember = {
-  tableId: string;
-  userId: string;
-  userLevel: "gm" | "player";
-  joinedAt?: string;
-};
-
-type GameTableRow = {
-  id: string;
-  owner_user_id: string | null;
-  name: string;
-  slug: string;
-  created_at: string;
-  updated_at: string;
-};
-
-type GameTableMemberRow = {
-  table_id: string;
-  user_id: string;
-  user_level: "gm" | "player";
-  joined_at: string;
-};
+export type { GameTable, GameTableMember, GameTableCharacterAssignment } from "@/lib/session/types";
 
 export type GameTableSession = {
   user: User | null;
   profile: AppUserProfile | null;
   table: GameTable | null;
   members: GameTableMember[];
+  assignments: GameTableCharacterAssignment[];
   seatContext: SeatContext;
+  role: SeatRole;
   isGm: boolean;
+  canManageTable: boolean;
   controlledCharacterIds: string[];
   loading: boolean;
   error: string | null;
@@ -70,42 +56,6 @@ function isUuid(value: string | undefined): value is string {
   );
 }
 
-function rowToTable(row: GameTableRow): GameTable {
-  return {
-    id: row.id,
-    ownerUserId: row.owner_user_id ?? undefined,
-    name: row.name,
-    slug: row.slug,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  };
-}
-
-function rowToMember(row: GameTableMemberRow): GameTableMember {
-  return {
-    tableId: row.table_id,
-    userId: row.user_id,
-    userLevel: row.user_level,
-    joinedAt: row.joined_at
-  };
-}
-
-function resolveSeatRole(input: {
-  userId?: string;
-  profile: AppUserProfile | null;
-  table: GameTable | null;
-  members: GameTableMember[];
-}): SeatRole {
-  if (!input.userId) return "spectator";
-  if (input.table?.ownerUserId === input.userId) return "gm";
-
-  const membership = input.members.find((member) => member.userId === input.userId);
-  if (membership?.userLevel === "gm") return "gm";
-  if (membership?.userLevel === "player") return "player";
-
-  return input.profile?.userLevel === "gm" ? "gm" : "player";
-}
-
 export function useGameTableSession(
   gameTableId?: string,
   providedAuthState?: AuthState | null
@@ -117,7 +67,7 @@ export function useGameTableSession(
   });
   const [table, setTable] = useState<GameTable | null>(null);
   const [members, setMembers] = useState<GameTableMember[]>([]);
-  const [controlledCharacterIds, setControlledCharacterIds] = useState<string[]>([]);
+  const [assignments, setAssignments] = useState<GameTableCharacterAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,41 +93,54 @@ export function useGameTableSession(
 
   const userId = authState.user?.id;
 
+  const refreshMembers = useCallback(async () => {
+    if (!isUuid(gameTableId)) {
+      setMembers([]);
+      return;
+    }
+
+    try {
+      setMembers(await listTableMembers(gameTableId));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not refresh table members.");
+    }
+  }, [gameTableId]);
+
+  const refreshAssignments = useCallback(async () => {
+    if (!isUuid(gameTableId) || !userId) {
+      setAssignments([]);
+      return;
+    }
+
+    try {
+      setAssignments(await listTableAssignments(gameTableId));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not refresh assignments.");
+    }
+  }, [gameTableId, userId]);
+
   const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const client = getSupabaseClient();
-      const shouldQueryTable = Boolean(client && isUuid(gameTableId) && userId);
+      if (!isUuid(gameTableId) || !userId) {
+        setTable(null);
+        setMembers([]);
+        setAssignments([]);
+        return;
+      }
 
-      const [tableResult, memberResult, characters] = await Promise.all([
-        shouldQueryTable && client
-          ? client
-              .from("game_tables")
-              .select("*")
-              .eq("id", gameTableId)
-              .maybeSingle()
-          : Promise.resolve({ data: null, error: null }),
-        shouldQueryTable && client
-          ? client.from("game_table_members").select("*").eq("table_id", gameTableId)
-          : Promise.resolve({ data: [], error: null }),
-        listCharacters()
+      const tableId = gameTableId;
+      const [loadedTable, loadedMembers, loadedAssignments] = await Promise.all([
+        getTable(tableId),
+        listTableMembers(tableId),
+        listTableAssignments(tableId)
       ]);
 
-      if (tableResult.error) throw tableResult.error;
-      if (memberResult.error) throw memberResult.error;
-
-      setTable(tableResult.data ? rowToTable(tableResult.data as GameTableRow) : null);
-      setMembers(((memberResult.data ?? []) as GameTableMemberRow[]).map(rowToMember));
-      setControlledCharacterIds(
-        characters
-          .filter((character) => {
-            if (!userId || character.ownerUserId !== userId) return false;
-            return !gameTableId || !character.gameTableId || character.gameTableId === gameTableId;
-          })
-          .map((character) => character.id)
-      );
+      setTable(loadedTable);
+      setMembers(loadedMembers);
+      setAssignments(loadedAssignments);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load table session.");
     } finally {
@@ -193,16 +156,42 @@ export function useGameTableSession(
     return () => window.clearTimeout(timeoutId);
   }, [reload]);
 
+  const realtimeEnabled = isSupabaseConfigured() && Boolean(userId) && isUuid(gameTableId);
+
+  useGameTableMembersRealtime({
+    gameTableId,
+    enabled: realtimeEnabled,
+    onMembersChange: refreshMembers
+  });
+
+  useGameTableAssignmentsRealtime({
+    gameTableId,
+    enabled: realtimeEnabled,
+    onAssignmentsChange: refreshAssignments
+  });
+
   const role = useMemo(
     () =>
       resolveSeatRole({
+        gameTableId,
         userId: authState.user?.id,
         profile: authState.profile,
         table,
         members
       }),
-    [authState.profile, authState.user?.id, members, table]
+    [authState.profile, authState.user?.id, gameTableId, members, table]
   );
+
+  const controlledCharacterIds = useMemo(() => {
+    if (!userId) return [];
+    if (isUuid(gameTableId)) {
+      return assignments
+        .filter((assignment) => assignment.userId === userId)
+        .map((assignment) => assignment.characterId);
+    }
+
+    return [];
+  }, [assignments, gameTableId, userId]);
 
   const seatContext = useMemo(
     () =>
@@ -215,13 +204,21 @@ export function useGameTableSession(
     [authState.user?.id, controlledCharacterIds, gameTableId, role]
   );
 
+  const tableCanManage = useMemo(
+    () => canManageTable(seatContext, table),
+    [seatContext, table]
+  );
+
   return {
     user: authState.user,
     profile: authState.profile,
     table,
     members,
+    assignments,
     seatContext,
+    role,
     isGm: role === "gm",
+    canManageTable: tableCanManage,
     controlledCharacterIds,
     loading,
     error,

@@ -75,7 +75,9 @@ import { executeSheetAction } from "@/lib/sheets/rollAction";
 import type { RollLogEntry } from "@/lib/sheets/types";
 import type { AuthState } from "@/lib/auth/supabaseAuth";
 import { canDeclareAction, canManageEncounter } from "@/lib/session/permissions";
-import { useGameTableSession } from "@/lib/session/useGameTableSession";
+import { useActiveTableId } from "@/lib/session/useActiveTableId";
+import { useCampaignSeat } from "@/lib/session/useCampaignSeat";
+import { isSupabaseConfigured } from "@/lib/storage/supabaseClient";
 import { getSystemSheet } from "@/data/characters";
 import { listCharacters } from "@/lib/storage/characterRepository";
 import {
@@ -107,17 +109,6 @@ const SYSTEM_LABELS: Record<CombatEncounterSystem, string> = {
   dnd5e: "D&D 5e",
   nwod: "NWoD"
 };
-
-function isGm(authState: AuthState | null): boolean {
-  return authState?.profile?.userLevel === "gm";
-}
-
-/** GM tools or local encounter editing without Supabase GM profile. */
-function canManageCombat(authState: AuthState | null): boolean {
-  if (isGm(authState)) return true;
-  const mode = getCombatStorageMode();
-  return mode === "local" || mode === "supabase-fallback";
-}
 
 function isPlayerControlledByCurrentUser(
   combatant: Combatant | null,
@@ -204,7 +195,10 @@ export default function CombatPage() {
   const [npcQuantity, setNpcQuantity] = useState("1");
   const [selectedTeam, setSelectedTeam] = useState<CombatTeam>("enemies");
   const [selectedSystem, setSelectedSystem] = useState<CombatEncounterSystem>("dnd5e");
-  const tableSession = useGameTableSession(activeEncounter?.gameTableId, authState);
+  const activeTableId = useActiveTableId();
+  const campaignSeat = useCampaignSeat(authState, {
+    gameTableId: activeEncounter?.gameTableId ?? activeTableId
+  });
 
   const encounterSystem = activeEncounter?.system ?? selectedSystem;
   const npcTemplates = useMemo(() => listNpcTemplates(encounterSystem), [encounterSystem]);
@@ -387,7 +381,10 @@ export default function CombatPage() {
   }
 
   async function handleNewEncounter() {
-    const encounter = createEncounter("New Encounter", selectedSystem);
+    const encounter = {
+      ...createEncounter("New Encounter", selectedSystem),
+      gameTableId: activeTableId ?? activeEncounter?.gameTableId
+    };
     await persistEncounter(encounter);
   }
 
@@ -442,7 +439,7 @@ export default function CombatPage() {
   }
 
   async function handleManualDamage(combatantId: string, amount: number) {
-    if (!activeEncounter || !gmUser || amount <= 0) return;
+    if (!activeEncounter || !canManageCombatSession || amount <= 0) return;
     const target = activeEncounter.combatants.find((combatant) => combatant.id === combatantId);
     if (!target) return;
     const beforeHp = target.currentHp ?? target.maxHp ?? 0;
@@ -484,7 +481,7 @@ export default function CombatPage() {
   }
 
   async function handleManualHealing(combatantId: string, amount: number) {
-    if (!activeEncounter || !gmUser || amount <= 0) return;
+    if (!activeEncounter || !canManageCombatSession || amount <= 0) return;
     const target = activeEncounter.combatants.find((combatant) => combatant.id === combatantId);
     if (!target) return;
     const beforeHp = target.currentHp ?? target.maxHp ?? 0;
@@ -524,7 +521,7 @@ export default function CombatPage() {
   }
 
   async function handleStatusChange(combatantId: string, status: CombatStatus) {
-    if (!activeEncounter || !gmUser) return;
+    if (!activeEncounter || !canManageCombatSession) return;
     const target = activeEncounter.combatants.find((combatant) => combatant.id === combatantId);
     if (!target) return;
     const updated = updateCombatant(activeEncounter, combatantId, (combatant) =>
@@ -548,7 +545,7 @@ export default function CombatPage() {
   }
 
   async function handleMakeActive(combatantId: string) {
-    if (!activeEncounter || !gmUser) return;
+    if (!activeEncounter || !canManageCombatSession) return;
     await persistEncounter(setActiveTurn(activeEncounter, combatantId), { logNewHistoryFrom: activeEncounter });
   }
 
@@ -678,7 +675,7 @@ export default function CombatPage() {
   }
 
   async function handleResolvePendingAction() {
-    if (!activeEncounter || !gmUser) return;
+    if (!activeEncounter || !canManageCombatSession) return;
     if (!isResolvablePendingAction(activeEncounter.pendingAction)) {
       setActionStatus(
         createCombatActionStatus(
@@ -774,14 +771,16 @@ export default function CombatPage() {
     activeEncounter && currentCombatant
       ? getValidTargets(activeEncounter, currentCombatant, { showAll: showAllTargets })
       : [];
-  const gmUser = tableSession.isGm || isGm(authState);
   const canManageCombatSession =
-    canManageCombat(authState) ||
+    !isSupabaseConfigured() ||
     (activeEncounter
-      ? canManageEncounter(tableSession.seatContext, activeEncounter)
-      : tableSession.isGm);
+      ? canManageEncounter(campaignSeat.seatContext, activeEncounter)
+      : campaignSeat.role === "gm");
+  const allowedCombatModes: CombatMode[] = canManageCombatSession
+    ? ["setup", "gm", "player"]
+    : ["player"];
   const activeOwnedByUser =
-    canDeclareAction(tableSession.seatContext, activeEncounter, currentCombatant?.id) ||
+    canDeclareAction(campaignSeat.seatContext, activeEncounter, currentCombatant?.id) ||
     isPlayerControlledByCurrentUser(currentCombatant, authState);
   const canPlayerEndTurn = Boolean(
     activeEncounter?.status === "active" && currentCombatant && activeOwnedByUser
@@ -795,7 +794,7 @@ export default function CombatPage() {
       authState?.user?.id
         ? combatant.controlledByUserId === authState.user.id ||
           Boolean(
-            combatant.sourceId && tableSession.controlledCharacterIds.includes(combatant.sourceId)
+            combatant.sourceId && campaignSeat.controlledCharacterIds.includes(combatant.sourceId)
           )
         : combatant.team === "players"
     ) ?? [];
@@ -862,7 +861,11 @@ export default function CombatPage() {
           }}
         />
 
-        <CombatModeTabs active={combatMode} onChange={setCombatMode} />
+        <CombatModeTabs
+          active={combatMode}
+          allowedModes={allowedCombatModes}
+          onChange={setCombatMode}
+        />
 
         {combatMode === "setup" ? (
         <GlassPanel level="secondary" className="p-5">
@@ -890,7 +893,7 @@ export default function CombatPage() {
               </label>
               <select
                 className="mt-1 h-10 w-full rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
-                disabled={!gmUser}
+                disabled={!canManageCombatSession}
                 onChange={(event) => setSelectedSystem(event.target.value as CombatEncounterSystem)}
                 value={selectedSystem}
               >
@@ -900,7 +903,7 @@ export default function CombatPage() {
             </div>
             <button
               className="h-10 rounded-md border border-purple-500/40 bg-purple-600/25 px-4 text-sm font-semibold text-purple-100 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={!gmUser}
+              disabled={!canManageCombatSession}
               onClick={() => void handleNewEncounter()}
               type="button"
             >
@@ -909,7 +912,7 @@ export default function CombatPage() {
             {activeEncounter ? (
               <button
                 className="h-10 rounded-md border border-red-500/30 bg-red-950/30 px-4 text-sm font-semibold text-red-100 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={!gmUser}
+                disabled={!canManageCombatSession}
                 onClick={() => void handleDeleteEncounter()}
                 type="button"
               >
@@ -934,7 +937,7 @@ export default function CombatPage() {
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button
                   className="h-9 rounded-md border border-red-500/40 bg-red-950/40 px-3 text-xs font-semibold text-red-100"
-                  disabled={!gmUser}
+                  disabled={!canManageCombatSession}
                   onClick={handleClearSavedEncounters}
                   type="button"
                 >
@@ -1019,7 +1022,7 @@ export default function CombatPage() {
                     <p className="text-sm font-semibold text-foreground">Player Character</p>
                     <select
                       className="mt-2 h-10 w-full rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
-                      disabled={!gmUser}
+                      disabled={!canManageCombatSession}
                       onChange={(event) => setSelectedCharacterId(event.target.value)}
                       value={effectiveSelectedCharacterId}
                     >
@@ -1035,7 +1038,7 @@ export default function CombatPage() {
                     </p>
                     <button
                       className="mt-3 inline-flex h-10 items-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-700/25 px-4 text-sm font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={!gmUser || !effectiveSelectedCharacterId}
+                      disabled={!canManageCombatSession || !effectiveSelectedCharacterId}
                       onClick={() => void handleAddCharacter()}
                       type="button"
                     >
@@ -1048,7 +1051,7 @@ export default function CombatPage() {
                     <p className="text-sm font-semibold text-foreground">NPC Template</p>
                     <select
                       className="mt-2 h-10 w-full rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
-                      disabled={!gmUser}
+                      disabled={!canManageCombatSession}
                       onChange={(event) => setSelectedNpcId(event.target.value)}
                       value={effectiveSelectedNpcId}
                     >
@@ -1061,7 +1064,7 @@ export default function CombatPage() {
                     <div className="mt-2 grid grid-cols-2 gap-2">
                       <input
                         className="h-10 rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
-                        disabled={!gmUser}
+                        disabled={!canManageCombatSession}
                         min={1}
                         onChange={(event) => setNpcQuantity(event.target.value)}
                         type="number"
@@ -1069,7 +1072,7 @@ export default function CombatPage() {
                       />
                       <select
                         className="h-10 rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm"
-                        disabled={!gmUser}
+                        disabled={!canManageCombatSession}
                         onChange={(event) => setSelectedTeam(event.target.value as CombatTeam)}
                         value={selectedTeam}
                       >
@@ -1082,7 +1085,7 @@ export default function CombatPage() {
                     </div>
                     <button
                       className="mt-3 inline-flex h-10 items-center gap-2 rounded-md border border-red-500/40 bg-red-700/25 px-4 text-sm font-semibold text-red-100 disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={!gmUser || !effectiveSelectedNpcId}
+                      disabled={!canManageCombatSession || !effectiveSelectedNpcId}
                       onClick={() => void handleAddNpcs()}
                       type="button"
                     >
@@ -1108,7 +1111,7 @@ export default function CombatPage() {
           activeEncounter ? (
             <PlayerCombatScreen
               activeCombatant={currentCombatant}
-              canDeclare={activeOwnedByUser && !gmUser}
+              canDeclare={activeOwnedByUser && !canManageCombatSession}
               canEndTurn={canPlayerEndTurn}
               currentUserId={authState?.user?.id}
               encounter={activeEncounter}

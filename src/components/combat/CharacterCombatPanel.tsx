@@ -20,6 +20,8 @@ import type {
   NwodStats
 } from "@/lib/sheets/types";
 import { isDnd5eSheet, isNwodSheet } from "@/lib/sheets/types";
+import { useCampaignSeat } from "@/lib/session/useCampaignSeat";
+import { useActiveTableId } from "@/lib/session/useActiveTableId";
 
 const TEAM_LABELS: Record<CombatTeam, string> = {
   players: "Players",
@@ -79,6 +81,7 @@ export function CharacterCombatPanel({
   const [encounters, setEncounters] = useState<CombatEncounter[]>([]);
   const [authState, setAuthState] = useState<AuthState | null>(null);
   const [loading, setLoading] = useState(true);
+  const activeTableId = useActiveTableId();
 
   async function refreshCombatState() {
     const [loadedEncounters, loadedAuthState] = await Promise.all([
@@ -117,6 +120,10 @@ export function CharacterCombatPanel({
       null
     );
 
+  const campaignSeat = useCampaignSeat(authState, {
+    gameTableId: activeParticipation?.encounter.gameTableId ?? profile.gameTableId ?? activeTableId
+  });
+
   if (loading || !activeParticipation) return null;
 
   const { encounter, combatant } = activeParticipation;
@@ -126,7 +133,7 @@ export function CharacterCombatPanel({
       .map((id) => encounter.combatants.find((entry) => entry.id === id)?.instanceName)
       .filter(Boolean)
       .join(", ") || "None";
-  const isGm = authState?.profile?.userLevel === "gm";
+  const isTableGm = campaignSeat.role === "gm";
 
   return (
     <GlassPanel level="secondary" className="p-5">
@@ -158,7 +165,7 @@ export function CharacterCombatPanel({
           >
             Open Combat
           </Link>
-          {isGm ? (
+          {isTableGm ? (
             <Link
               className="inline-flex h-10 items-center rounded-md border border-purple-500/35 bg-purple-700/20 px-3 text-sm font-semibold text-purple-100"
               href="/combat"

@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Coins, FileText, Gift, Sparkles, Swords } from "lucide-react";
+import { BookOpen, Coins, FileText, Gift, Sparkles, Swords, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { ActiveTableBar } from "@/components/campaign/ActiveTableBar";
 import { AuthPanel } from "@/components/AuthPanel";
+import type { AuthState } from "@/lib/auth/supabaseAuth";
+import { useCampaignSeat } from "@/lib/session/useCampaignSeat";
 import { CharacterProfileCard } from "@/components/CharacterProfileCard";
 import { CreateCharacterPanel } from "@/components/CreateCharacterPanel";
 import { GlassPanel } from "@/components/GlassPanel";
@@ -13,6 +16,12 @@ import { storageStatusForMode, type StorageMode } from "@/lib/storage/types";
 import type { CharacterProfile } from "@/lib/sheets/types";
 
 export default function HomePage() {
+  const [authState, setAuthState] = useState<AuthState>({
+    session: null,
+    user: null,
+    profile: null
+  });
+  const campaignSeat = useCampaignSeat(authState);
   const [profiles, setProfiles] = useState<CharacterProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [storageMode, setStorageMode] = useState<StorageMode>("local");
@@ -39,7 +48,8 @@ export default function HomePage() {
     };
   }, []);
 
-  const handleAuthChange = useCallback(() => {
+  const handleAuthChange = useCallback((state: AuthState) => {
+    setAuthState(state);
     void refreshProfiles();
   }, [refreshProfiles]);
 
@@ -98,6 +108,13 @@ export default function HomePage() {
               </Link>
               <Link
                 className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
+                href="/tables"
+              >
+                <Users className="h-4 w-4" aria-hidden="true" />
+                Tables
+              </Link>
+              <Link
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
                 href="/combat"
               >
                 <Swords className="h-4 w-4" aria-hidden="true" />
@@ -114,6 +131,38 @@ export default function HomePage() {
 
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <AuthPanel onAuthChange={handleAuthChange} />
+        <ActiveTableBar seat={campaignSeat} />
+
+        {campaignSeat.activeTableId ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {campaignSeat.isTableGm ? (
+              <Link
+                className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-4 transition hover:bg-amber-950/35"
+                href={`/tables/${campaignSeat.activeTableId}`}
+              >
+                <p className="text-sm font-semibold text-amber-100">GM at table</p>
+                <p className="mt-1 text-xs text-muted-foreground">Open lobby to manage roster and assignments.</p>
+              </Link>
+            ) : (
+              <Link
+                className="rounded-lg border border-cyan-500/30 bg-cyan-950/20 p-4 transition hover:bg-cyan-950/35"
+                href="/join"
+              >
+                <p className="text-sm font-semibold text-cyan-100">Join a table</p>
+                <p className="mt-1 text-xs text-muted-foreground">Use a join code to get character assignments.</p>
+              </Link>
+            )}
+            {campaignSeat.controlledCharacterIds.length > 0 ? (
+              <GlassPanel level="tertiary" className="p-4">
+                <p className="text-sm font-semibold text-foreground">Assigned characters</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {campaignSeat.controlledCharacterIds.length} character
+                  {campaignSeat.controlledCharacterIds.length === 1 ? "" : "s"} at this table.
+                </p>
+              </GlassPanel>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="mt-4">
           <CreateCharacterPanel onAdd={addProfile} />

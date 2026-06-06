@@ -2,16 +2,16 @@
 
 import { LogIn, LogOut, Mail, Shield, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   getCurrentAuthState,
   onAuthStateChanged,
   signInWithEmail,
   signOut,
   signUpWithEmail,
-  updateAppUserLevel,
   type AuthState
 } from "@/lib/auth/supabaseAuth";
-import type { UserLevel } from "@/lib/sheets/types";
+import { useCampaignSeat } from "@/lib/session/useCampaignSeat";
 import { isSupabaseConfigured } from "@/lib/storage/supabaseClient";
 import { GlassPanel } from "./GlassPanel";
 
@@ -31,8 +31,8 @@ export function AuthPanel({ onAuthChange }: AuthPanelProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [userLevel, setUserLevel] = useState<UserLevel>("player");
   const [busy, setBusy] = useState(false);
+  const campaignSeat = useCampaignSeat(authState);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,14 +42,12 @@ export function AuthPanel({ onAuthChange }: AuthPanelProps) {
     getCurrentAuthState().then((state) => {
       if (!mounted) return;
       setAuthState(state);
-      setUserLevel(state.profile?.userLevel ?? "player");
       onAuthChange?.(state);
     });
 
     const unsubscribe = onAuthStateChanged((state) => {
       if (!mounted) return;
       setAuthState(state);
-      setUserLevel(state.profile?.userLevel ?? "player");
       onAuthChange?.(state);
     });
 
@@ -78,7 +76,6 @@ export function AuthPanel({ onAuthChange }: AuthPanelProps) {
   async function refreshAuthState() {
     const state = await getCurrentAuthState();
     setAuthState(state);
-    setUserLevel(state.profile?.userLevel ?? "player");
     onAuthChange?.(state);
   }
 
@@ -99,7 +96,7 @@ export function AuthPanel({ onAuthChange }: AuthPanelProps) {
           email: trimmedEmail,
           password,
           displayName: displayName.trim() || undefined,
-          userLevel
+          userLevel: "player"
         });
 
         if (signUpError) throw signUpError;
@@ -122,20 +119,6 @@ export function AuthPanel({ onAuthChange }: AuthPanelProps) {
       setError(caught instanceof Error ? caught.message : "Authentication failed.");
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function handleLevelChange(nextLevel: UserLevel) {
-    setUserLevel(nextLevel);
-    if (!authState.user) return;
-
-    try {
-      const profile = await updateAppUserLevel(nextLevel);
-      const nextState = { ...authState, profile };
-      setAuthState(nextState);
-      onAuthChange?.(nextState);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not update table role.");
     }
   }
 
@@ -163,14 +146,18 @@ export function AuthPanel({ onAuthChange }: AuthPanelProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              className="h-10 rounded-md border border-slate-700/30 bg-slate-900/70 px-3 text-sm text-foreground outline-none focus:border-cyan-500/50"
-              value={userLevel}
-              onChange={(event) => handleLevelChange(event.target.value as UserLevel)}
-            >
-              <option value="player">Player</option>
-              <option value="gm">GM</option>
-            </select>
+            {campaignSeat.activeTableId ? (
+              <p className="text-xs text-muted-foreground">
+                Seat at{" "}
+                <Link
+                  className="font-semibold text-cyan-200 hover:text-cyan-100"
+                  href={`/tables/${campaignSeat.activeTableId}`}
+                >
+                  {campaignSeat.table?.name ?? "table"}
+                </Link>
+                : {campaignSeat.role}
+              </p>
+            ) : null}
             <button
               className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
               onClick={handleSignOut}
@@ -243,16 +230,6 @@ export function AuthPanel({ onAuthChange }: AuthPanelProps) {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
-            {mode === "signup" ? (
-              <select
-                className="h-10 rounded-md border border-slate-700/30 bg-slate-900/70 px-3 text-sm text-foreground outline-none focus:border-purple-500/50"
-                value={userLevel}
-                onChange={(event) => setUserLevel(event.target.value as UserLevel)}
-              >
-                <option value="player">Player</option>
-                <option value="gm">GM</option>
-              </select>
-            ) : null}
           </div>
         </div>
 

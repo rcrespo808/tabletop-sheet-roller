@@ -14,9 +14,11 @@ import {
   X
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AuthPanel } from "@/components/AuthPanel";
+import { CampaignShell } from "@/components/campaign/CampaignShell";
+import { MasterDetailLayout } from "@/components/campaign/MasterDetailLayout";
+import type { SeatMode } from "@/components/campaign/SeatModeTabs";
 import { GlassPanel } from "@/components/GlassPanel";
-import { StorageStatusBadge } from "@/components/StorageStatusBadge";
+import { useCampaignSeat } from "@/lib/session/useCampaignSeat";
 import { getAvailableSystems } from "@/data/characters";
 import {
   createCodexEntry,
@@ -584,6 +586,8 @@ export default function CodexPage() {
   const [addSelection, setAddSelection] = useState<AddSelection>(defaultAddSelection(undefined));
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [seatMode, setSeatMode] = useState<SeatMode>("play");
+  const campaignSeat = useCampaignSeat(authState);
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = useCallback(async () => {
@@ -617,7 +621,8 @@ export default function CodexPage() {
     };
   }, []);
 
-  const canManage = !isSupabaseConfigured() || authState.profile?.userLevel === "gm";
+  const canManage = campaignSeat.canManage;
+  const isManageMode = seatMode === "manage" && canManage;
   const selectedEntry = entries.find((entry) => entry.id === selectedEntryId) ?? entries[0];
 
   function selectEntry(entry: CodexEntry) {
@@ -628,11 +633,22 @@ export default function CodexPage() {
   }
 
   const selectableCharacters = useMemo(() => {
-    if (canManage || !isSupabaseConfigured()) return characters;
+    if (isManageMode || !isSupabaseConfigured()) return characters;
+    if (campaignSeat.activeTableId && campaignSeat.controlledCharacterIds.length > 0) {
+      return characters.filter((character) =>
+        campaignSeat.controlledCharacterIds.includes(character.id)
+      );
+    }
     return characters.filter((character) => {
       return !character.ownerUserId || character.ownerUserId === authState.user?.id;
     });
-  }, [authState.user?.id, canManage, characters]);
+  }, [
+    authState.user?.id,
+    campaignSeat.activeTableId,
+    campaignSeat.controlledCharacterIds,
+    characters,
+    isManageMode
+  ]);
 
   const selectedCharacter = selectableCharacters.find(
     (character) => character.id === selectedCharacterId
@@ -649,8 +665,20 @@ export default function CodexPage() {
   const filteredEntries = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     const normalizedTag = tagFilter.trim().toLowerCase();
+    const applyPlayerVisibility = seatMode === "play" || !canManage;
 
     return entries.filter((entry) => {
+      if (applyPlayerVisibility) {
+        if (entry.visibility === "gm_only") return false;
+        if (
+          entry.visibility === "campaign" &&
+          campaignSeat.activeTableId &&
+          entry.campaignId &&
+          entry.campaignId !== campaignSeat.activeTableId
+        ) {
+          return false;
+        }
+      }
       const text = [
         entry.name,
         entry.subtitle,
@@ -671,10 +699,23 @@ export default function CodexPage() {
         (!normalizedQuery || text.includes(normalizedQuery))
       );
     });
-  }, [entries, query, systemFilter, tagFilter, typeFilter, visibilityFilter]);
+  }, [
+    campaignSeat.activeTableId,
+    canManage,
+    entries,
+    query,
+    seatMode,
+    systemFilter,
+    tagFilter,
+    typeFilter,
+    visibilityFilter
+  ]);
 
   function openCreateForm() {
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      campaignId: campaignSeat.activeTableId ?? ""
+    });
     setFormOpen(true);
     setError(null);
     setMessage(null);
@@ -884,51 +925,40 @@ export default function CodexPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-slate-700/20 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-600/35">
-                <BookOpen className="h-6 w-6 text-cyan-100" aria-hidden="true" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold uppercase text-cyan-200">Ability Codex</p>
-                <h1 className="mt-1 text-3xl font-bold text-foreground sm:text-4xl">
-                  Reusable Table Content
-                </h1>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <StorageStatusBadge mode={storageMode} />
-              <button
-                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
-                onClick={handleExportVisible}
-                type="button"
-              >
-                <Download className="h-4 w-4" aria-hidden="true" />
-                Export JSON
-              </button>
-              <Link
-                className="inline-flex h-10 items-center rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
-                href="/"
-              >
-                Characters
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <AuthPanel onAuthChange={setAuthState} />
-
-        <section className="mt-6 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <aside className="space-y-4">
+    <CampaignShell
+      error={error}
+      header={{
+        icon: BookOpen,
+        iconGradient: "from-cyan-600/80 to-cyan-900/80 shadow-cyan-500/20",
+        eyebrow: "Ability Codex",
+        title: "Reusable Table Content",
+        description: "Campaign abilities, items, conditions, and lore entries shared across characters.",
+        storageMode,
+        moduleLinks: [{ href: "/", label: "Characters", icon: UserPlus }],
+        actions: (
+          <button
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
+            onClick={handleExportVisible}
+            type="button"
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Export JSON
+          </button>
+        )
+      }}
+      message={message}
+      mode={seatMode}
+      onAuthChange={setAuthState}
+      onModeChange={setSeatMode}
+      seat={campaignSeat}
+    >
+      <MasterDetailLayout
+        aside={
+          <>
             <GlassPanel level="secondary" className="p-4">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-foreground">Codex</h2>
-                {canManage ? (
+                {isManageMode ? (
                   <div className="flex gap-2">
                     <button
                       className="inline-flex h-9 items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-700/35 px-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-700/55"
@@ -1018,7 +1048,7 @@ export default function CodexPage() {
               </div>
             </GlassPanel>
 
-            {canManage ? (
+            {isManageMode ? (
               <input
                 accept="application/json"
                 className="hidden"
@@ -1028,7 +1058,7 @@ export default function CodexPage() {
               />
             ) : null}
 
-            {canManage ? (
+            {isManageMode ? (
               <button
                 className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
                 onClick={() => importInputRef.current?.click()}
@@ -1050,7 +1080,7 @@ export default function CodexPage() {
                 <GlassPanel level="tertiary" className="p-5 text-sm text-muted-foreground">
                   <p className="font-semibold text-foreground">No codex entries yet</p>
                   <p className="mt-2">Import the starter codex or create a custom entry.</p>
-                  {canManage ? (
+                  {isManageMode ? (
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         className="inline-flex h-9 items-center rounded-md border border-emerald-500/40 bg-emerald-700/35 px-3 text-sm font-semibold text-emerald-100"
@@ -1117,9 +1147,9 @@ export default function CodexPage() {
                 </button>
               ))}
             </div>
-          </aside>
-
-          <section className="space-y-4">
+          </>
+        }
+      >
             {selectedEntry ? (
               <GlassPanel level="secondary" glow="medium" className="p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -1146,7 +1176,7 @@ export default function CodexPage() {
                     ) : null}
                   </div>
 
-                  {canManage ? (
+                  {isManageMode ? (
                     <div className="flex gap-2">
                       <button
                         className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
@@ -1344,9 +1374,6 @@ export default function CodexPage() {
             <GlassPanel level="tertiary" className="p-4 text-center text-xs text-muted-foreground">
               {storageStatusForMode(storageMode).message}
             </GlassPanel>
-          </section>
-        </section>
-      </div>
 
       {formOpen ? (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm">
@@ -1636,6 +1663,7 @@ export default function CodexPage() {
           </div>
         </div>
       ) : null}
-    </main>
+      </MasterDetailLayout>
+    </CampaignShell>
   );
 }

@@ -11,6 +11,11 @@ import type {
   SheetAction
 } from "@/lib/sheets/types";
 import { getCustomActions } from "@/lib/sheets/actions";
+import {
+  canManageCharacterRewards,
+  canManageCharacterRewardsFully
+} from "@/lib/session/permissions";
+import type { CampaignSeat } from "@/lib/session/useCampaignSeat";
 import { isSupabaseConfigured } from "@/lib/storage/supabaseClient";
 import {
   clearRollLogs,
@@ -41,6 +46,7 @@ type CharacterSheetWorkspaceProps = {
   profile: CharacterProfile;
   selectedSystem: GameSystem;
   onProfileChange?: (profile: CharacterProfile) => void | Promise<void>;
+  campaignSeat?: CampaignSeat | null;
   isRollLogOpen?: boolean;
   onRollLogClose?: () => void;
 };
@@ -48,6 +54,7 @@ type CharacterSheetWorkspaceProps = {
 export function CharacterSheetWorkspace({
   profile,
   selectedSystem,
+  campaignSeat,
   onProfileChange,
   isRollLogOpen = false,
   onRollLogClose
@@ -134,9 +141,15 @@ export function CharacterSheetWorkspace({
 
   const customActions = getCustomActions(sheet);
   const codexActions = customActions.filter((action) => action.metadata?.sourceCodexEntryId);
+  const localMode = !isSupabaseConfigured();
+  const seatContext = campaignSeat?.seatContext;
   const canManageRewards =
     Boolean(onProfileChange) &&
-    (!isSupabaseConfigured() || authState.profile?.userLevel === "gm");
+    (localMode ||
+      Boolean(seatContext && canManageCharacterRewards(seatContext, profile, { localMode })));
+  const canEditSheetFully =
+    localMode ||
+    Boolean(seatContext && canManageCharacterRewardsFully(seatContext, { localMode }));
 
   async function removeCodexAction(action: SheetAction) {
     if (!onProfileChange) return;
@@ -163,7 +176,7 @@ export function CharacterSheetWorkspace({
         <CharacterWorkspaceTabPanel active={activeTab} tab="overview">
           <CharacterCombatPanel profile={profile} selectedSystem={selectedSystem} />
           <CharacterOverviewPanel
-            canManage={canManageRewards}
+            canManage={canEditSheetFully && Boolean(onProfileChange)}
             onProfileChange={onProfileChange}
             onRollLogEntry={addEntry}
             profile={profile}
@@ -180,7 +193,7 @@ export function CharacterSheetWorkspace({
           {codexActions.length > 0 ? (
             <CodexAttachmentsPanel
               actions={codexActions}
-              canManage={canManageRewards}
+              canManage={canEditSheetFully}
               onRemove={removeCodexAction}
               selectedSystem={selectedSystem}
             />
@@ -240,7 +253,7 @@ export function CharacterSheetWorkspace({
         </CharacterWorkspaceTabPanel>
 
         <CharacterWorkspaceTabPanel active={activeTab} tab="notes">
-          <CharacterNotesPanel canManageGmNotes={canManageRewards} profile={profile} />
+          <CharacterNotesPanel canManageGmNotes={canEditSheetFully} profile={profile} />
           {onProfileChange ? (
             <CharacterImagesPanel
               onProfileChange={onProfileChange}

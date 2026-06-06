@@ -7,6 +7,8 @@ import { CharacterHeader } from "@/components/CharacterHeader";
 import { CharacterSheetWorkspace } from "@/components/CharacterSheetWorkspace";
 import { GlassPanel } from "@/components/GlassPanel";
 import { getAvailableSystems } from "@/data/characters";
+import { getCurrentAuthState, type AuthState } from "@/lib/auth/supabaseAuth";
+import { useCampaignSeat } from "@/lib/session/useCampaignSeat";
 import { resolveCharacterLookup, saveCharacter } from "@/lib/storage/characterRepository";
 import type { CharacterProfile, GameSystem } from "@/lib/sheets/types";
 
@@ -21,6 +23,16 @@ function CharacterPageContent({ characterId }: { characterId: string }) {
   const [loading, setLoading] = useState(true);
   const [systemByCharacter, setSystemByCharacter] = useState<Record<string, GameSystem>>({});
   const [isRollLogOpen, setIsRollLogOpen] = useState(false);
+  const [authState, setAuthState] = useState<AuthState>({
+    session: null,
+    user: null,
+    profile: null
+  });
+  const campaignSeat = useCampaignSeat(authState, { gameTableId: profile?.gameTableId });
+
+  useEffect(() => {
+    void getCurrentAuthState().then(setAuthState);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +113,7 @@ function CharacterPageContent({ characterId }: { characterId: string }) {
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <CharacterSheetWorkspace
+          campaignSeat={campaignSeat}
           isRollLogOpen={isRollLogOpen}
           onRollLogClose={() => setIsRollLogOpen(false)}
           onProfileChange={handleProfileChange}

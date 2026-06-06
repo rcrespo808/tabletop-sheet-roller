@@ -12,9 +12,10 @@ import { ImageUploadField } from "./ImageUploadField";
 
 type CreateCharacterPanelProps = {
   onAdd: (profile: CharacterProfile) => Promise<void> | void;
+  gameTableId?: string;
 };
 
-export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
+export function CreateCharacterPanel({ gameTableId, onAdd }: CreateCharacterPanelProps) {
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [system, setSystem] = useState<GameSystem>("dnd5e");
@@ -30,6 +31,7 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
       id,
       name,
       characterKind,
+      gameTableId,
       defaultSystem: system,
       inventory: [],
       wallet: {},
@@ -52,7 +54,7 @@ export function CreateCharacterPanel({ onAdd }: CreateCharacterPanelProps) {
     }
 
     return profile;
-  }, [characterKind, id, name, portraitImage, sheetImage, system]);
+  }, [characterKind, gameTableId, id, name, portraitImage, sheetImage, system]);
 
   async function handlePortraitUpload(result: CharacterImageUploadResult) {
     setPortraitImage(result.publicUrl);

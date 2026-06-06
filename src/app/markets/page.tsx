@@ -14,9 +14,12 @@ import {
   Trash2
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AuthPanel } from "@/components/AuthPanel";
+import { CampaignShell } from "@/components/campaign/CampaignShell";
+import { MasterDetailLayout } from "@/components/campaign/MasterDetailLayout";
+import type { SeatMode } from "@/components/campaign/SeatModeTabs";
 import { GlassPanel } from "@/components/GlassPanel";
-import { StorageStatusBadge } from "@/components/StorageStatusBadge";
+import { canBuyFromMarket } from "@/lib/session/permissions";
+import { useCampaignSeat } from "@/lib/session/useCampaignSeat";
 import {
   closeMarket,
   DEFAULT_MARKET_GAME_TABLE_ID,
@@ -42,6 +45,7 @@ import type {
 import { ITEM_RARITIES, MARKET_THEMES } from "@/lib/markets/types";
 import { normalizeInventoryItem } from "@/lib/sheets/inventory";
 import type { CharacterProfile, InventoryItem } from "@/lib/sheets/types";
+import { useActiveTableId } from "@/lib/session/useActiveTableId";
 import { listCharacters } from "@/lib/storage/characterRepository";
 import { isSupabaseConfigured } from "@/lib/storage/supabaseClient";
 import type { StorageMode } from "@/lib/storage/types";
@@ -288,7 +292,10 @@ export default function MarketsPage() {
     user: null,
     profile: null
   });
-  const [gameTableId] = useState(DEFAULT_MARKET_GAME_TABLE_ID);
+  const activeTableId = useActiveTableId();
+  const gameTableId = activeTableId ?? DEFAULT_MARKET_GAME_TABLE_ID;
+  const campaignSeat = useCampaignSeat(authState, { gameTableId });
+  const [seatMode, setSeatMode] = useState<SeatMode>("play");
   const [markets, setMarkets] = useState<Market[]>([]);
   const [characters, setCharacters] = useState<CharacterProfile[]>([]);
   const [transactions, setTransactions] = useState<MarketTransaction[]>([]);
@@ -304,14 +311,29 @@ export default function MarketsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const isGm = !isSupabaseConfigured() || authState.profile?.userLevel === "gm";
+  const canManage = campaignSeat.canManage;
+  const isManageMode = seatMode === "manage" && canManage;
+  const selectableCharacters = useMemo(() => {
+    if (campaignSeat.controlledCharacterIds.length > 0) {
+      return characters.filter((character) =>
+        campaignSeat.controlledCharacterIds.includes(character.id)
+      );
+    }
+    if (isManageMode) return characters;
+    return characters.filter((character) => character.ownerUserId === authState.user?.id);
+  }, [authState.user?.id, campaignSeat.controlledCharacterIds, characters, isManageMode]);
   const visibleMarkets = useMemo(
-    () => (isGm ? markets : markets.filter((market) => market.status === "open")),
-    [isGm, markets]
+    () => (isManageMode ? markets : markets.filter((market) => market.status === "open")),
+    [isManageMode, markets]
   );
   const selectedMarket = visibleMarkets.find((market) => market.id === selectedMarketId) ?? visibleMarkets[0];
   const selectedStore = selectedMarket?.stores.find((store) => store.id === selectedStoreId) ?? selectedMarket?.stores[0];
-  const selectedCharacter = characters.find((character) => character.id === selectedCharacterId) ?? characters[0];
+  const selectedCharacter =
+    selectableCharacters.find((character) => character.id === selectedCharacterId) ??
+    selectableCharacters[0];
+  const canBuySelected = Boolean(
+    selectedCharacter && canBuyFromMarket(campaignSeat.seatContext, selectedCharacter)
+  );
 
   const refresh = useCallback(async () => {
     const [nextMarkets, nextCharacters] = await Promise.all([
@@ -502,70 +524,37 @@ export default function MarketsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-slate-700/20 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-500/15">
-                <Coins className="h-6 w-6 text-amber-100" aria-hidden="true" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold uppercase text-amber-200">Market</p>
-                <h1 className="mt-1 text-3xl font-bold text-foreground sm:text-4xl">
-                  Stores and Transactions
-                </h1>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <StorageStatusBadge mode={storageMode} />
-              <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70" href="/">
-                <Home className="h-4 w-4" aria-hidden="true" />
-                Home
-              </Link>
-              <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70" href="/codex">
-                <BookOpen className="h-4 w-4" aria-hidden="true" />
-                Codex
-              </Link>
-              <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70" href="/loot">
-                <Gift className="h-4 w-4" aria-hidden="true" />
-                Loot
-              </Link>
-              <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70" href="/handouts">
-                <FileText className="h-4 w-4" aria-hidden="true" />
-                Handouts
-              </Link>
-            </div>
-          </div>
-          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-            Open a temporary market, manage store stock, then record permanent buy and sell
-            transactions against character wallets and inventories.
-          </p>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-7xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-        <AuthPanel onAuthChange={handleAuthChange} />
-
-        {message ? (
-          <GlassPanel level="tertiary" className="border-emerald-500/30 p-4 text-sm text-emerald-200">
-            {message}
-          </GlassPanel>
-        ) : null}
-        {error ? (
-          <GlassPanel level="tertiary" className="border-red-500/30 p-4 text-sm text-red-200">
-            {error}
-          </GlassPanel>
-        ) : null}
-
-        <section className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+    <CampaignShell
+      error={error}
+      header={{
+        icon: Coins,
+        iconGradient: "from-amber-500 to-orange-700 shadow-amber-500/20",
+        eyebrow: "Market",
+        title: "Stores and Transactions",
+        description:
+          "Open a temporary market, manage store stock, then record permanent buy and sell transactions against character wallets and inventories.",
+        storageMode,
+        moduleLinks: [
+          { href: "/", label: "Home", icon: Home },
+          { href: "/codex", label: "Codex", icon: BookOpen },
+          { href: "/loot", label: "Loot", icon: Gift },
+          { href: "/handouts", label: "Handouts", icon: FileText }
+        ]
+      }}
+      message={message}
+      mode={seatMode}
+      onAuthChange={handleAuthChange}
+      onModeChange={setSeatMode}
+      seat={campaignSeat}
+    >
+      <section className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
           <div className="space-y-4">
             <GlassPanel className="p-4">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-foreground">Markets</h2>
                 <button
                   className="inline-flex h-9 items-center gap-2 rounded-md border border-amber-500/40 bg-amber-700/30 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-700/50 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!isGm}
+                  disabled={!isManageMode}
                   onClick={importStarter}
                   type="button"
                 >
@@ -601,18 +590,20 @@ export default function MarketsPage() {
               </div>
             </GlassPanel>
 
+            {isManageMode ? (
             <GlassPanel className="p-4">
               <h2 className="text-lg font-semibold text-foreground">Create Market</h2>
               <div className="mt-4 space-y-3">
                 <input className="h-10 w-full rounded-md border border-slate-700/30 bg-slate-900/70 px-3 text-sm outline-none focus:border-amber-500/50" placeholder="Market name" value={marketForm.name} onChange={(event) => setMarketForm({ ...marketForm, name: event.target.value })} />
                 <input className="h-10 w-full rounded-md border border-slate-700/30 bg-slate-900/70 px-3 text-sm outline-none focus:border-amber-500/50" placeholder="Location" value={marketForm.location} onChange={(event) => setMarketForm({ ...marketForm, location: event.target.value })} />
                 <textarea className="min-h-24 w-full rounded-md border border-slate-700/30 bg-slate-900/70 px-3 py-2 text-sm outline-none focus:border-amber-500/50" placeholder="Description" value={marketForm.description} onChange={(event) => setMarketForm({ ...marketForm, description: event.target.value })} />
-                <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-amber-500/40 bg-amber-700/30 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-700/50 disabled:cursor-not-allowed disabled:opacity-50" disabled={!isGm} onClick={createMarket} type="button">
+                <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-amber-500/40 bg-amber-700/30 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-700/50 disabled:cursor-not-allowed disabled:opacity-50" disabled={!isManageMode} onClick={createMarket} type="button">
                   <Save className="h-4 w-4" aria-hidden="true" />
                   Save Market
                 </button>
               </div>
             </GlassPanel>
+            ) : null}
           </div>
 
           <div className="space-y-6">
@@ -629,18 +620,20 @@ export default function MarketsPage() {
                         {[selectedMarket.location, selectedMarket.description].filter(Boolean).join(" - ")}
                       </p>
                     </div>
+                    {isManageMode ? (
                     <div className="flex flex-wrap gap-2">
-                      <button className="h-10 rounded-md border border-emerald-500/40 bg-emerald-700/30 px-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-700/50 disabled:cursor-not-allowed disabled:opacity-50" disabled={!isGm || selectedMarket.status === "open"} onClick={() => runAction(() => openMarket(selectedMarket.id).then(() => undefined), "Market opened.")} type="button">
+                      <button className="h-10 rounded-md border border-emerald-500/40 bg-emerald-700/30 px-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-700/50 disabled:cursor-not-allowed disabled:opacity-50" disabled={selectedMarket.status === "open"} onClick={() => runAction(() => openMarket(selectedMarket.id).then(() => undefined), "Market opened.")} type="button">
                         Open
                       </button>
-                      <button className="h-10 rounded-md border border-slate-500/40 bg-slate-800/50 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/80 disabled:cursor-not-allowed disabled:opacity-50" disabled={!isGm || selectedMarket.status === "closed"} onClick={() => runAction(() => closeMarket(selectedMarket.id).then(() => undefined), "Market closed.")} type="button">
+                      <button className="h-10 rounded-md border border-slate-500/40 bg-slate-800/50 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/80 disabled:cursor-not-allowed disabled:opacity-50" disabled={selectedMarket.status === "closed"} onClick={() => runAction(() => closeMarket(selectedMarket.id).then(() => undefined), "Market closed.")} type="button">
                         Close
                       </button>
-                      <button className="inline-flex h-10 items-center gap-2 rounded-md border border-red-500/40 bg-red-950/40 px-3 text-sm font-semibold text-red-100 transition hover:bg-red-950/60 disabled:cursor-not-allowed disabled:opacity-50" disabled={!isGm} onClick={() => runAction(() => deleteMarket(selectedMarket.id), "Market deleted.")} type="button">
+                      <button className="inline-flex h-10 items-center gap-2 rounded-md border border-red-500/40 bg-red-950/40 px-3 text-sm font-semibold text-red-100 transition hover:bg-red-950/60" onClick={() => runAction(() => deleteMarket(selectedMarket.id), "Market deleted.")} type="button">
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                         Delete
                       </button>
                     </div>
+                    ) : null}
                   </div>
                 </GlassPanel>
 
@@ -666,7 +659,7 @@ export default function MarketsPage() {
                                   {titleCase(store.theme)} - Q{store.quality} - Scarcity {store.scarcity}
                                 </p>
                               </div>
-                              {isGm ? (
+                              {isManageMode ? (
                                 <div className="flex gap-2">
                                   <button className="text-xs font-semibold text-amber-200 hover:text-amber-100" onClick={() => setStoreForm(storeToForm(store))} type="button">Edit</button>
                                   <button className="text-xs font-semibold text-red-200 hover:text-red-100" onClick={() => deleteStore(store.id)} type="button">Delete</button>
@@ -698,13 +691,13 @@ export default function MarketsPage() {
                                   {stock.item.notes ? <p className="mt-2 text-sm leading-6 text-muted-foreground">{stock.item.notes}</p> : null}
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                  {isGm ? (
+                                  {isManageMode ? (
                                     <>
                                       <button className="h-9 rounded-md border border-slate-600/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 hover:bg-slate-800/70" onClick={() => setStockForm(stockToForm(stock))} type="button">Edit</button>
                                       <button className="h-9 rounded-md border border-red-500/40 bg-red-950/40 px-3 text-sm font-semibold text-red-100 hover:bg-red-950/60" onClick={() => deleteStock(stock.id)} type="button">Delete</button>
                                     </>
                                   ) : null}
-                                  <button className="inline-flex h-9 items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-700/30 px-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-700/50 disabled:cursor-not-allowed disabled:opacity-50" disabled={!isGm || selectedMarket.status !== "open" || stock.quantityAvailable < 1 || stock.requiresGmApproval} onClick={() => buyStock(stock)} type="button">
+                                  <button className="inline-flex h-9 items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-700/30 px-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-700/50 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canBuySelected || selectedMarket.status !== "open" || stock.quantityAvailable < 1 || stock.requiresGmApproval} onClick={() => buyStock(stock)} type="button">
                                     <ShoppingBag className="h-4 w-4" aria-hidden="true" />
                                     Buy
                                   </button>
@@ -724,18 +717,20 @@ export default function MarketsPage() {
                     <GlassPanel className="p-4">
                       <h3 className="text-lg font-semibold text-foreground">Shopping Character</h3>
                       <select className="mt-3 h-10 w-full rounded-md border border-slate-700/30 bg-slate-900/70 px-3 text-sm outline-none focus:border-amber-500/50" value={selectedCharacter?.id ?? ""} onChange={(event) => setSelectedCharacterId(event.target.value)}>
-                        {characters.map((character) => (
+                        {selectableCharacters.map((character) => (
                           <option key={character.id} value={character.id}>{character.name}</option>
                         ))}
                       </select>
                       <p className="mt-2 text-sm text-muted-foreground">{walletLabel(selectedCharacter)}</p>
-                      {isSupabaseConfigured() && !isGm ? (
+                      {isSupabaseConfigured() && !canBuySelected ? (
                         <p className="mt-3 text-xs text-amber-200">
-                          Supabase buying and selling is GM-mediated in this MVP.
+                          Assign a character at this table to buy or sell here.
                         </p>
                       ) : null}
                     </GlassPanel>
 
+                    {isManageMode ? (
+                    <>
                     <GlassPanel className="p-4">
                       <h3 className="text-lg font-semibold text-foreground">Add or Edit Store</h3>
                       <div className="mt-4 space-y-3">
@@ -754,7 +749,7 @@ export default function MarketsPage() {
                           <option value="">No mean rarity</option>
                           {ITEM_RARITIES.map((rarity) => <option key={rarity} value={rarity}>{titleCase(rarity)}</option>)}
                         </select>
-                        <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-amber-500/40 bg-amber-700/30 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-700/50 disabled:cursor-not-allowed disabled:opacity-50" disabled={!isGm || !selectedMarket} onClick={saveStoreForm} type="button">
+                        <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-amber-500/40 bg-amber-700/30 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-700/50 disabled:cursor-not-allowed disabled:opacity-50" disabled={!isManageMode || !selectedMarket} onClick={saveStoreForm} type="button">
                           <Save className="h-4 w-4" aria-hidden="true" />
                           Save Store
                         </button>
@@ -785,7 +780,7 @@ export default function MarketsPage() {
                           <input className="h-10 rounded-md border border-slate-700/30 bg-slate-900/70 px-3 text-sm outline-none focus:border-amber-500/50" placeholder="Custom amount" value={stockForm.customAmount} onChange={(event) => setStockForm({ ...stockForm, customAmount: event.target.value })} />
                         </div>
                         <textarea className="min-h-40 w-full rounded-md border border-slate-700/30 bg-slate-950/80 px-3 py-2 font-mono text-xs outline-none focus:border-amber-500/50" value={stockForm.itemJson} onChange={(event) => setStockForm({ ...stockForm, itemJson: event.target.value })} />
-                        <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-amber-500/40 bg-amber-700/30 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-700/50 disabled:cursor-not-allowed disabled:opacity-50" disabled={!isGm || !selectedStore} onClick={saveStockForm} type="button">
+                        <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-amber-500/40 bg-amber-700/30 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-700/50 disabled:cursor-not-allowed disabled:opacity-50" disabled={!isManageMode || !selectedStore} onClick={saveStockForm} type="button">
                           <Save className="h-4 w-4" aria-hidden="true" />
                           Save Stock
                         </button>
@@ -811,12 +806,14 @@ export default function MarketsPage() {
                           <input checked={sellForm.addToStoreStock} onChange={(event) => setSellForm({ ...sellForm, addToStoreStock: event.target.checked })} type="checkbox" />
                           Add sold item to store stock
                         </label>
-                        <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-700/30 px-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-700/50 disabled:cursor-not-allowed disabled:opacity-50" disabled={!isGm || selectedMarket.status !== "open"} onClick={sellItem} type="button">
+                        <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-700/30 px-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-700/50 disabled:cursor-not-allowed disabled:opacity-50" disabled={!canBuySelected || selectedMarket.status !== "open"} onClick={sellItem} type="button">
                           <Coins className="h-4 w-4" aria-hidden="true" />
                           Sell Item
                         </button>
                       </div>
                     </GlassPanel>
+                    </>
+                    ) : null}
                   </div>
                 </section>
 
@@ -844,7 +841,6 @@ export default function MarketsPage() {
             )}
           </div>
         </section>
-      </div>
-    </main>
+    </CampaignShell>
   );
 }

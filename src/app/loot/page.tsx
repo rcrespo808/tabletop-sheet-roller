@@ -13,9 +13,12 @@ import {
   Trash2
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AuthPanel } from "@/components/AuthPanel";
+import { CampaignShell } from "@/components/campaign/CampaignShell";
+import { MasterDetailLayout } from "@/components/campaign/MasterDetailLayout";
+import type { SeatMode } from "@/components/campaign/SeatModeTabs";
 import { GlassPanel } from "@/components/GlassPanel";
-import { StorageStatusBadge } from "@/components/StorageStatusBadge";
+import { useCampaignSeat } from "@/lib/session/useCampaignSeat";
+import { useActiveTableId } from "@/lib/session/useActiveTableId";
 import { listCodexEntries } from "@/lib/codex/codexRepository";
 import type { CodexEntry } from "@/lib/codex/types";
 import { createRollLogEntry } from "@/lib/dice/log";
@@ -241,7 +244,10 @@ export default function LootPage() {
     user: null,
     profile: null
   });
-  const [campaignId, setCampaignId] = useState(DEFAULT_LOOT_CAMPAIGN_ID);
+  const activeTableId = useActiveTableId();
+  const campaignSeat = useCampaignSeat(authState);
+  const [seatMode, setSeatMode] = useState<SeatMode>("play");
+  const campaignId = activeTableId ?? DEFAULT_LOOT_CAMPAIGN_ID;
   const [tables, setTables] = useState<LootTable[]>([]);
   const [characters, setCharacters] = useState<CharacterProfile[]>([]);
   const [codexEntries, setCodexEntries] = useState<CodexEntry[]>([]);
@@ -258,17 +264,18 @@ export default function LootPage() {
   const [error, setError] = useState<string | null>(null);
 
   const isStarterLootCampaign = campaignId === SUPABASE_STARTER_LOOT_CAMPAIGN_ID;
-  const canManage = !isSupabaseConfigured() || authState.profile?.userLevel === "gm";
-  const canApplyRewards = canManage || isStarterLootCampaign;
+  const canManage = campaignSeat.canManage;
+  const isManageMode = seatMode === "manage" && canManage;
+  const canApplyRewards = isManageMode || isStarterLootCampaign;
   const selectedTable = useMemo(
     () => tables.find((table) => table.id === selectedTableId) ?? null,
     [selectedTableId, tables]
   );
 
   const visibleTables = useMemo(() => {
-    if (canManage) return tables;
+    if (isManageMode) return tables;
     return tables.filter((table) => table.visibility === "campaign");
-  }, [canManage, tables]);
+  }, [isManageMode, tables]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -484,93 +491,45 @@ export default function LootPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-slate-700/20 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-rose-700 shadow-lg shadow-amber-500/20">
-                <Gift className="h-6 w-6 text-white" aria-hidden="true" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold uppercase text-amber-200">
-                  Rewards Engine
-                </p>
-                <h1 className="mt-1 text-3xl font-bold text-foreground sm:text-4xl">
-                  Loot Tables
-                </h1>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <StorageStatusBadge mode={storageMode} />
-              <Link
-                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
-                href="/"
-              >
-                <Home className="h-4 w-4" aria-hidden="true" />
-                Characters
-              </Link>
-              <Link
-                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
-                href="/codex"
-              >
-                <BookOpen className="h-4 w-4" aria-hidden="true" />
-                Codex
-              </Link>
-            </div>
-          </div>
-          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-            Reusable weighted reward tables that grant currency, items, XP, conditions, notes, and
-            codex features to selected characters.
-          </p>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <AuthPanel onAuthChange={setAuthState} />
-
-        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
-          <label className="grid gap-1 text-sm">
-            <span className="font-semibold text-slate-200">Campaign ID</span>
-            <input
-              className="h-10 rounded-md border border-slate-700/30 bg-slate-900/60 px-3 text-sm text-foreground outline-none focus:border-amber-500/50"
-              onChange={(event) => {
-                setLoading(true);
-                setCampaignId(event.target.value.trim() || DEFAULT_LOOT_CAMPAIGN_ID);
-              }}
-              placeholder={DEFAULT_LOOT_CAMPAIGN_ID}
-              value={campaignId}
-            />
-          </label>
-          {canManage ? (
-            <button
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-amber-500/40 bg-amber-600/20 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-600/30"
-              onClick={handleImportStarter}
-              type="button"
-            >
-              <PackagePlus className="h-4 w-4" aria-hidden="true" />
-              Import Starter Loot Tables
-            </button>
-          ) : null}
-        </div>
-
-        {message ? (
-          <div className="mt-4 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-            {message}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="mt-8 grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="space-y-4">
+    <CampaignShell
+      error={error}
+      header={{
+        icon: Gift,
+        iconGradient: "from-amber-500 to-rose-700 shadow-amber-500/20",
+        eyebrow: "Rewards Engine",
+        title: "Loot Tables",
+        description:
+          "Reusable weighted reward tables that grant currency, items, XP, conditions, notes, and codex features to selected characters.",
+        storageMode,
+        moduleLinks: [
+          { href: "/", label: "Characters", icon: Home },
+          { href: "/codex", label: "Codex", icon: BookOpen }
+        ]
+      }}
+      message={message}
+      mode={seatMode}
+      onAuthChange={setAuthState}
+      onModeChange={setSeatMode}
+      seat={campaignSeat}
+      toolbar={
+        isManageMode ? (
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-amber-500/40 bg-amber-600/20 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-600/30"
+            onClick={handleImportStarter}
+            type="button"
+          >
+            <PackagePlus className="h-4 w-4" aria-hidden="true" />
+            Import Starter Loot Tables
+          </button>
+        ) : null
+      }
+    >
+      <MasterDetailLayout
+        aside={
             <GlassPanel level="secondary" className="p-4">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-foreground">Tables</h2>
-                {canManage ? (
+                {isManageMode ? (
                   <button
                     className="rounded-md border border-slate-700/40 bg-slate-900/60 p-2 text-slate-100 transition hover:bg-slate-800/80"
                     onClick={startNewTable}
@@ -622,10 +581,10 @@ export default function LootPage() {
                 )}
               </div>
             </GlassPanel>
-          </aside>
-
+        }
+      >
           <section className="space-y-6">
-            {canManage ? (
+            {isManageMode ? (
               <GlassPanel level="secondary" className="p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-semibold text-foreground">
@@ -730,7 +689,7 @@ export default function LootPage() {
                             <p className="mt-2 text-xs leading-5 text-muted-foreground">{entry.notes}</p>
                           ) : null}
                         </div>
-                        {canManage ? (
+                        {isManageMode ? (
                           <div className="flex items-center gap-2">
                             <button
                               className="rounded-md border border-slate-700/35 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:bg-slate-800/80"
@@ -759,7 +718,7 @@ export default function LootPage() {
               </div>
             </GlassPanel>
 
-            {canManage && selectedTable ? (
+            {isManageMode && selectedTable ? (
               <GlassPanel level="secondary" className="p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-semibold text-foreground">
@@ -951,8 +910,7 @@ export default function LootPage() {
               </div>
             </GlassPanel>
           </section>
-        </div>
-      </div>
-    </main>
+      </MasterDetailLayout>
+    </CampaignShell>
   );
 }

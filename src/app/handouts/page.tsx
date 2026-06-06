@@ -17,9 +17,10 @@ import {
   X
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { AuthPanel } from "@/components/AuthPanel";
+import { CampaignShell } from "@/components/campaign/CampaignShell";
+import { MasterDetailLayout } from "@/components/campaign/MasterDetailLayout";
+import type { SeatMode } from "@/components/campaign/SeatModeTabs";
 import { GlassPanel } from "@/components/GlassPanel";
-import { StorageStatusBadge } from "@/components/StorageStatusBadge";
 import { listCodexEntries } from "@/lib/codex/codexRepository";
 import type { CodexEntry } from "@/lib/codex/types";
 import { createRollLogEntry } from "@/lib/dice/log";
@@ -49,6 +50,7 @@ import {
 import type { RewardGrant } from "@/lib/loot/types";
 import { DEFAULT_ROOM_SLUG } from "@/lib/rollLog/constants";
 import type { CharacterProfile } from "@/lib/sheets/types";
+import { useCampaignSeat } from "@/lib/session/useCampaignSeat";
 import { listCharacters } from "@/lib/storage/characterRepository";
 import {
   deleteHandoutFile,
@@ -347,7 +349,11 @@ export default function HandoutsPage() {
     user: null,
     profile: null
   });
-  const [gameTableId, setGameTableId] = useState(LOCAL_DEMO_GAME_TABLE_ID);
+  const campaignSeat = useCampaignSeat(authState);
+  const [seatMode, setSeatMode] = useState<SeatMode>("play");
+  const gameTableId =
+    campaignSeat.activeTableId ??
+    (isSupabaseConfigured() ? "" : LOCAL_DEMO_GAME_TABLE_ID);
   const [handouts, setHandouts] = useState<Handout[]>([]);
   const [applications, setApplications] = useState<HandoutRewardApplication[]>([]);
   const [characters, setCharacters] = useState<CharacterProfile[]>([]);
@@ -372,7 +378,8 @@ export default function HandoutsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const canManage = !isSupabaseConfigured() || authState.profile?.userLevel === "gm";
+  const canManage = campaignSeat.canManage;
+  const isManageMode = seatMode === "manage" && canManage;
   const selectedHandout = useMemo(
     () => handouts.find((handout) => handout.id === selectedHandoutId) ?? null,
     [handouts, selectedHandoutId]
@@ -402,18 +409,28 @@ export default function HandoutsPage() {
   }, [applicationsForSelected, selectedHandout, targetCharacterIds]);
 
   const playerOptions = useMemo(() => {
+    if (campaignSeat.members.length > 0) {
+      return campaignSeat.members
+        .filter((member) => member.userLevel === "player")
+        .map((member) => ({
+          id: member.userId,
+          label: `Player ${member.userId.slice(0, 8)}`
+        }));
+    }
+
     const players = new Map<string, string>();
     for (const character of characters) {
       if (!character.ownerUserId) continue;
       players.set(character.ownerUserId, character.ownerLabel ?? `${character.name} owner`);
     }
     return Array.from(players.entries()).map(([id, label]) => ({ id, label }));
-  }, [characters]);
+  }, [characters, campaignSeat.members]);
 
   const filteredHandouts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
+    const applyPlayerVisibility = seatMode === "play" || !canManage;
     return handouts.filter((handout) => {
-      if (!canManage) {
+      if (applyPlayerVisibility) {
         const userId = authState.user?.id;
         const visible =
           handout.visibility === "public" ||
@@ -438,11 +455,19 @@ export default function HandoutsPage() {
     handouts,
     kindFilter,
     searchQuery,
+    seatMode,
     tagFilter,
     visibilityFilter
   ]);
 
   useEffect(() => {
+    if (!gameTableId) {
+      setHandouts([]);
+      setApplications([]);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     Promise.all([
@@ -841,89 +866,46 @@ export default function HandoutsPage() {
             : "Apply Rewards";
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-slate-700/20 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-emerald-700 shadow-lg shadow-cyan-500/20">
-                <FileText className="h-6 w-6 text-white" aria-hidden="true" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold uppercase text-cyan-200">Campaign Lore</p>
-                <h1 className="mt-1 text-3xl font-bold text-foreground sm:text-4xl">
-                  Handouts
-                </h1>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <StorageStatusBadge mode={storageMode} />
-              <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70" href="/">
-                <Home className="h-4 w-4" aria-hidden="true" />
-                Characters
-              </Link>
-              <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70" href="/codex">
-                <BookOpen className="h-4 w-4" aria-hidden="true" />
-                Codex
-              </Link>
-              <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70" href="/loot">
-                <Gift className="h-4 w-4" aria-hidden="true" />
-                Loot
-              </Link>
-            </div>
-          </div>
-          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-            Reward-bearing documents for bounties, scrolls, treasure notes, conditions, contracts,
-            clues, and faction letters.
-          </p>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <AuthPanel onAuthChange={setAuthState} />
-
-        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
-          <label className="grid gap-1 text-sm">
-            <span className="font-semibold text-slate-200">Game Table ID</span>
-            <input
-              className={inputClass}
-              onChange={(event) => {
-                setLoading(true);
-                setGameTableId(event.target.value.trim() || LOCAL_DEMO_GAME_TABLE_ID);
-              }}
-              placeholder={LOCAL_DEMO_GAME_TABLE_ID}
-              value={gameTableId}
-            />
-          </label>
-          {canManage ? (
-            <button
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-600/20 px-3 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-600/30"
-              onClick={handleImportStarter}
-              type="button"
-            >
-              <PackagePlus className="h-4 w-4" aria-hidden="true" />
-              Import Starter Handouts
-            </button>
-          ) : null}
-        </div>
-
-        {message ? (
-          <div className="mt-4 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-            {message}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="mt-8 grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-          <aside className="space-y-4">
+    <CampaignShell
+      error={error}
+      header={{
+        icon: FileText,
+        iconGradient: "from-cyan-500 to-emerald-700 shadow-cyan-500/20",
+        eyebrow: "Campaign Lore",
+        title: "Handouts",
+        description:
+          "Reward-bearing documents for bounties, scrolls, treasure notes, conditions, contracts, clues, and faction letters.",
+        storageMode,
+        moduleLinks: [
+          { href: "/", label: "Characters", icon: Home },
+          { href: "/codex", label: "Codex", icon: BookOpen },
+          { href: "/loot", label: "Loot", icon: Gift }
+        ]
+      }}
+      message={message}
+      mode={seatMode}
+      onAuthChange={setAuthState}
+      onModeChange={setSeatMode}
+      seat={campaignSeat}
+      toolbar={
+        isManageMode ? (
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-cyan-500/40 bg-cyan-600/20 px-3 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-600/30"
+            onClick={handleImportStarter}
+            type="button"
+          >
+            <PackagePlus className="h-4 w-4" aria-hidden="true" />
+            Import Starter Handouts
+          </button>
+        ) : null
+      }
+    >
+      <MasterDetailLayout
+        aside={
             <GlassPanel level="secondary" className="p-4">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-foreground">Handouts</h2>
-                {canManage ? (
+                {isManageMode ? (
                   <button
                     className="rounded-md border border-slate-700/40 bg-slate-900/60 p-2 text-slate-100 transition hover:bg-slate-800/80"
                     onClick={startNewHandout}
@@ -1054,10 +1036,10 @@ export default function HandoutsPage() {
                 )}
               </div>
             </GlassPanel>
-          </aside>
-
+        }
+      >
           <section className="space-y-6">
-            {canManage ? (
+            {isManageMode ? (
               <GlassPanel level="secondary" className="p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-semibold text-foreground">
@@ -1585,7 +1567,7 @@ export default function HandoutsPage() {
                     </div>
                   </div>
 
-                  {canManage && selectedHandout.gmNotes ? (
+                  {isManageMode && selectedHandout.gmNotes ? (
                     <div className="mt-6 rounded-md border border-amber-500/25 bg-amber-500/10 p-4">
                       <h3 className="text-sm font-semibold text-amber-100">GM Notes</h3>
                       <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-amber-50/90">
@@ -1601,7 +1583,7 @@ export default function HandoutsPage() {
               )}
             </GlassPanel>
 
-            {canManage && selectedHandout ? (
+            {isManageMode && selectedHandout ? (
               <GlassPanel level="secondary" className="p-5">
                 <div className="grid gap-5 lg:grid-cols-2">
                   <div>
@@ -1729,8 +1711,7 @@ export default function HandoutsPage() {
               </GlassPanel>
             ) : null}
           </section>
-        </div>
-      </div>
-    </main>
+      </MasterDetailLayout>
+    </CampaignShell>
   );
 }
