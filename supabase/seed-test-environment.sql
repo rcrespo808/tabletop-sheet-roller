@@ -19,6 +19,16 @@ where game_table_id = '11111111-1111-4111-8111-111111111111';
 delete from public.handouts
 where game_table_id = '11111111-1111-4111-8111-111111111111';
 
+delete from public.market_transactions
+where market_id in (
+  select id
+  from public.markets
+  where game_table_id = '11111111-1111-4111-8111-111111111111'
+);
+
+delete from public.markets
+where game_table_id = '11111111-1111-4111-8111-111111111111';
+
 delete from public.loot_tables
 where campaign_id = '11111111-1111-4111-8111-111111111111';
 
@@ -143,7 +153,7 @@ values
     'dnd5e',
     '{"dnd5e":{"system":"dnd5e","actions":[{"id":"quarterstaff","type":"dnd-roll","label":"Quarterstaff","roll":"1d20+5","notes":"Starter deploy seed action.","source":"custom"}],"notes":[]}}'::jsonb,
     '[]'::jsonb,
-    '{"gp":0,"sp":0,"cp":0,"xp":0}'::jsonb,
+    '{"gp":250,"sp":25,"cp":50,"xp":0,"custom":{}}'::jsonb,
     '[]'::jsonb,
     '{"level":1,"xp":0,"milestones":[]}'::jsonb,
     '[]'::jsonb
@@ -161,7 +171,7 @@ values
     'nwod',
     '{"nwod":{"system":"nwod","actions":[{"id":"vermin-sermon","type":"nwod-pool","label":"Vermin Sermon","pool":6,"notes":"Starter deploy seed action.","source":"custom"}],"notes":[]}}'::jsonb,
     '[]'::jsonb,
-    '{"xp":0,"resources":1}'::jsonb,
+    '{"xp":0,"custom":{"cash":180,"resources":3}}'::jsonb,
     '[]'::jsonb,
     '{"xp":0,"milestones":[]}'::jsonb,
     '[]'::jsonb
@@ -268,6 +278,276 @@ values
       {"id":"whisper","label":"Whispered clue","weight":2,"reward":{"type":"note","title":"Whispered Clue","body":"A test clue reward from the deploy seed."}}
     ]'::jsonb,
     '22222222-2222-4222-8222-222222222222'
+  );
+
+insert into public.markets (
+  id,
+  game_table_id,
+  name,
+  description,
+  location,
+  status,
+  stores,
+  metadata,
+  created_by,
+  opened_at,
+  closed_at
+)
+values
+  (
+    '77777777-7777-4777-8777-000000000001',
+    '11111111-1111-4111-8111-111111111111',
+    'Deploy D&D Test Market',
+    'Open D&D market for deploy smoke tests: coin wallet buys, stock decrement, powers, and GM approval flags.',
+    'Deploy Test Gatehouse',
+    'open',
+    $json$[
+      {
+        "id": "deploy-dnd-outfitter",
+        "name": "Deploy D&D Outfitter",
+        "theme": "general",
+        "description": "Simple D&D 5e stock for wallet and inventory tests.",
+        "quality": 3,
+        "scarcity": 2,
+        "meanRarity": "common",
+        "priceMultiplier": 1,
+        "sellMultiplier": 0.5,
+        "stock": [
+          {
+            "id": "deploy-dnd-healing-potion",
+            "item": {
+              "id": "deploy-dnd-healing-potion",
+              "name": "Potion of Healing",
+              "quantity": 1,
+              "rarity": "common",
+              "notes": "Deploy market test potion.",
+              "powers": [
+                {
+                  "id": "power-deploy-drink-healing-potion",
+                  "label": "Drink Potion",
+                  "description": "Regain 2d4+2 hit points; consumed on use.",
+                  "action": {
+                    "id": "action-deploy-drink-healing-potion",
+                    "type": "dnd-roll",
+                    "label": "Potion Healing",
+                    "roll": "2d4+2",
+                    "notes": "Deploy market healing test."
+                  },
+                  "consumesItem": true
+                }
+              ],
+              "tags": ["potion", "healing", "consumable"]
+            },
+            "price": { "gp": 50 },
+            "quantityAvailable": 3,
+            "rarity": "common",
+            "tags": ["potion", "healing"],
+            "source": "manual"
+          },
+          {
+            "id": "deploy-dnd-silvered-shortsword",
+            "item": {
+              "id": "deploy-dnd-silvered-shortsword",
+              "name": "Silvered Shortsword",
+              "quantity": 1,
+              "rarity": "common",
+              "notes": "Deploy market weapon test.",
+              "tags": ["weapon", "silvered"]
+            },
+            "price": { "gp": 125 },
+            "quantityAvailable": 1,
+            "rarity": "common",
+            "tags": ["weapon", "silvered"],
+            "source": "manual"
+          }
+        ]
+      },
+      {
+        "id": "deploy-dnd-arcane-stall",
+        "name": "Deploy Arcane Stall",
+        "theme": "arcane",
+        "description": "Scroll stock for item powers and approval testing.",
+        "quality": 4,
+        "scarcity": 3,
+        "meanRarity": "uncommon",
+        "priceMultiplier": 1.15,
+        "sellMultiplier": 0.4,
+        "stock": [
+          {
+            "id": "deploy-dnd-scroll-magic-missile",
+            "item": {
+              "id": "deploy-dnd-scroll-magic-missile",
+              "name": "Spell Scroll: Magic Missile",
+              "quantity": 1,
+              "rarity": "uncommon",
+              "notes": "Deploy market spell scroll.",
+              "powers": [
+                {
+                  "id": "power-deploy-scroll-magic-missile",
+                  "label": "Cast Magic Missile",
+                  "description": "Cast Magic Missile from the scroll; consumed on use.",
+                  "action": {
+                    "id": "action-deploy-scroll-magic-missile",
+                    "type": "dnd-roll",
+                    "label": "Magic Missile Damage",
+                    "roll": "3d4+3",
+                    "notes": "Deploy market scroll damage test."
+                  },
+                  "consumesItem": true
+                }
+              ],
+              "tags": ["spell", "scroll", "arcane"]
+            },
+            "price": { "gp": 85 },
+            "quantityAvailable": 2,
+            "rarity": "uncommon",
+            "tags": ["spell", "scroll"],
+            "source": "manual"
+          },
+          {
+            "id": "deploy-dnd-sentinel-shield",
+            "item": {
+              "id": "deploy-dnd-sentinel-shield",
+              "name": "Sentinel Shield",
+              "quantity": 1,
+              "rarity": "uncommon",
+              "notes": "GM approval stock for deploy market tests.",
+              "tags": ["shield", "magic"]
+            },
+            "price": { "gp": 350 },
+            "quantityAvailable": 1,
+            "rarity": "uncommon",
+            "tags": ["shield", "magic"],
+            "requiresGmApproval": true,
+            "source": "manual"
+          }
+        ]
+      }
+    ]$json$::jsonb,
+    '{"seed":"deploy-test","system":"dnd5e","purpose":"market-smoke"}'::jsonb,
+    '22222222-2222-4222-8222-222222222222',
+    now(),
+    null
+  ),
+  (
+    '77777777-7777-4777-8777-000000000002',
+    '11111111-1111-4111-8111-111111111111',
+    'Deploy NWoD Test Market',
+    'Open NWoD market for deploy smoke tests: custom cash/resources currency, clue tools, and occult powers.',
+    'Deploy Rat Chapel Back Room',
+    'open',
+    $json$[
+      {
+        "id": "deploy-after-hours-fixer",
+        "name": "Deploy After-Hours Fixer",
+        "theme": "black_market",
+        "description": "Street-level tools priced in custom cash.",
+        "quality": 3,
+        "scarcity": 3,
+        "meanRarity": "common",
+        "priceMultiplier": 1.2,
+        "sellMultiplier": 0.3,
+        "stock": [
+          {
+            "id": "deploy-nwod-burner-phone-pack",
+            "item": {
+              "id": "deploy-nwod-burner-phone-pack",
+              "name": "Burner Phone Pack",
+              "quantity": 1,
+              "rarity": "common",
+              "notes": "Deploy market street equipment.",
+              "tags": ["equipment", "intel"]
+            },
+            "price": { "custom": { "cash": 40 } },
+            "quantityAvailable": 4,
+            "rarity": "common",
+            "tags": ["equipment", "intel"],
+            "source": "manual"
+          },
+          {
+            "id": "deploy-nwod-lock-bypass-kit",
+            "item": {
+              "id": "deploy-nwod-lock-bypass-kit",
+              "name": "Lock Bypass Kit",
+              "quantity": 1,
+              "rarity": "common",
+              "notes": "Deploy market Larceny tool.",
+              "tags": ["tool", "larceny"]
+            },
+            "price": { "custom": { "cash": 75 } },
+            "quantityAvailable": 2,
+            "rarity": "common",
+            "tags": ["tool", "larceny"],
+            "source": "manual"
+          }
+        ]
+      },
+      {
+        "id": "deploy-occult-curio-dealer",
+        "name": "Deploy Occult Curio Dealer",
+        "theme": "arcane",
+        "description": "Occult stock priced in Resources.",
+        "quality": 4,
+        "scarcity": 4,
+        "meanRarity": "uncommon",
+        "priceMultiplier": 1.4,
+        "sellMultiplier": 0.25,
+        "stock": [
+          {
+            "id": "deploy-nwod-rat-bone-rosary",
+            "item": {
+              "id": "deploy-nwod-rat-bone-rosary",
+              "name": "Rat-Bone Rosary",
+              "quantity": 1,
+              "rarity": "uncommon",
+              "notes": "Deploy market occult focus.",
+              "powers": [
+                {
+                  "id": "power-deploy-rat-bone-focus",
+                  "label": "Vermin Focus",
+                  "description": "Add a +1 situational bonus to one Occult or Investigation pool involving vermin signs.",
+                  "action": {
+                    "id": "action-deploy-rat-bone-focus",
+                    "type": "nwod-pool",
+                    "label": "Vermin Focus",
+                    "pool": 1,
+                    "notes": "Deploy market NWoD bonus die test."
+                  },
+                  "charges": { "current": 1, "max": 1, "reset": "session" }
+                }
+              ],
+              "tags": ["occult", "vermin", "tool"]
+            },
+            "price": { "custom": { "resources": 1 } },
+            "quantityAvailable": 1,
+            "rarity": "uncommon",
+            "tags": ["occult", "vermin"],
+            "source": "manual"
+          },
+          {
+            "id": "deploy-nwod-confession-ledger",
+            "item": {
+              "id": "deploy-nwod-confession-ledger",
+              "name": "Confession Ledger Copy",
+              "quantity": 1,
+              "rarity": "rare",
+              "notes": "GM approval leverage stock for deploy market tests.",
+              "tags": ["intel", "leverage", "black_market"]
+            },
+            "price": { "custom": { "resources": 2 } },
+            "quantityAvailable": 1,
+            "rarity": "rare",
+            "tags": ["intel", "leverage"],
+            "requiresGmApproval": true,
+            "source": "manual"
+          }
+        ]
+      }
+    ]$json$::jsonb,
+    '{"seed":"deploy-test","system":"nwod","purpose":"market-smoke"}'::jsonb,
+    '22222222-2222-4222-8222-222222222222',
+    now(),
+    null
   );
 
 insert into public.handouts (
