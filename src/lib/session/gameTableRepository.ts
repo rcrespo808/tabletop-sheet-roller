@@ -260,6 +260,7 @@ export async function createTable(name: string): Promise<GameTable> {
 
       if (error) throw error;
       lastGameTableStorageMode = "supabase";
+      await getCurrentAuthState();
       return rowToTable(data as GameTableRow);
     } catch (error) {
       console.warn("[gameTableRepository] Supabase create failed, caching locally.", error);

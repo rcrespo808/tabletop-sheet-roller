@@ -6,8 +6,12 @@ import { useCallback, useEffect, useState } from "react";
 import { AuthPanel } from "@/components/AuthPanel";
 import { GlassPanel } from "@/components/GlassPanel";
 import { StorageStatusBadge } from "@/components/StorageStatusBadge";
-import type { AuthState } from "@/lib/auth/supabaseAuth";
+import { canReviewPlayers } from "@/lib/auth/accessControl";
+import { countPendingPlayers } from "@/lib/auth/playerReviewRepository";
+import { fetchIsTableGmAnywhere } from "@/lib/auth/tableGmAccess";
+import { getCurrentAuthState, type AuthState } from "@/lib/auth/supabaseAuth";
 import { createTable, getGameTableStorageMode, listMyTables } from "@/lib/session/gameTableRepository";
+import { isSupabaseConfigured } from "@/lib/storage/supabaseClient";
 import type { SeatRole } from "@/lib/session/permissions";
 import { setActiveTableId } from "@/lib/session/activeTable";
 import type { GameTable } from "@/lib/session/types";
@@ -26,12 +30,27 @@ export default function TablesPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [canReview, setCanReview] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setTables(await listMyTables());
+      const [nextTables, isTableGm, nextAuth] = await Promise.all([
+        listMyTables(),
+        fetchIsTableGmAnywhere(),
+        getCurrentAuthState()
+      ]);
+      setTables(nextTables);
+      setAuthState(nextAuth);
+      const reviewAllowed = canReviewPlayers(nextAuth, { isTableGmAnywhere: isTableGm });
+      setCanReview(reviewAllowed);
+      if (reviewAllowed) {
+        setPendingCount(await countPendingPlayers());
+      } else {
+        setPendingCount(0);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load tables.");
     } finally {
@@ -54,8 +73,12 @@ export default function TablesPage() {
     try {
       const created = await createTable(tableName.trim());
       setTableName("");
-      setMessage(`Created ${created.name}.`);
+      setMessage(`Created ${created.name}. Opening app…`);
       setActiveTableId(created.id);
+      if (isSupabaseConfigured()) {
+        window.location.href = "/";
+        return;
+      }
       await refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not create table.");
@@ -80,6 +103,15 @@ export default function TablesPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StorageStatusBadge mode={getGameTableStorageMode()} />
+              {canReview ? (
+                <Link
+                  href="/review/players"
+                  className="inline-flex h-10 items-center gap-2 rounded-md border border-amber-500/40 bg-amber-950/30 px-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-900/40"
+                >
+                  Review players
+                  {pendingCount > 0 ? ` (${pendingCount})` : ""}
+                </Link>
+              ) : null}
               <Link
                 href="/join"
                 className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"

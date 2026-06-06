@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { AppAccessGate } from "@/components/auth/AppAccessGate";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
@@ -14,7 +15,9 @@ type RootLayoutProps = {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AppAccessGate>{children}</AppAccessGate>
+      </body>
     </html>
   );
 }

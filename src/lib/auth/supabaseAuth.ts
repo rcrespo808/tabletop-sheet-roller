@@ -3,11 +3,16 @@ import { getAuthConfirmUrl } from "@/lib/auth/authRedirect";
 import { getSupabaseClient } from "@/lib/storage/supabaseClient";
 import type { UserLevel } from "@/lib/sheets/types";
 
+export type PlayStatus = "pending" | "approved" | "rejected";
+
 export type AppUserProfile = {
   id: string;
   email?: string;
   displayName?: string;
   userLevel: UserLevel;
+  playStatus: PlayStatus;
+  reviewedAt?: string;
+  reviewedBy?: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -17,6 +22,9 @@ type AppUserProfileRow = {
   email: string | null;
   display_name: string | null;
   user_level: UserLevel;
+  play_status?: PlayStatus;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -33,6 +41,9 @@ function rowToProfile(row: AppUserProfileRow): AppUserProfile {
     email: row.email ?? undefined,
     displayName: row.display_name ?? undefined,
     userLevel: row.user_level,
+    playStatus: row.play_status ?? "pending",
+    reviewedAt: row.reviewed_at ?? undefined,
+    reviewedBy: row.reviewed_by ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -69,7 +80,8 @@ export async function getAppUserProfile(user: User): Promise<AppUserProfile | nu
         typeof user.user_metadata?.display_name === "string"
           ? user.user_metadata.display_name
           : null,
-      user_level: "player"
+      user_level: "player",
+      play_status: "pending"
     })
     .select("*")
     .single();

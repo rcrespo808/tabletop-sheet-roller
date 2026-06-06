@@ -97,15 +97,16 @@ values
     now()
   );
 
-insert into public.app_user_profiles (id, email, display_name, user_level)
+insert into public.app_user_profiles (id, email, display_name, user_level, play_status)
 values
-  ('22222222-2222-4222-8222-222222222222', 'gm.test@example.invalid', 'Test GM', 'gm'),
-  ('33333333-3333-4333-8333-333333333333', 'player.test@example.invalid', 'Test Player', 'player')
+  ('22222222-2222-4222-8222-222222222222', 'gm.test@example.invalid', 'Test GM', 'gm', 'approved'),
+  ('33333333-3333-4333-8333-333333333333', 'player.test@example.invalid', 'Test Player', 'player', 'pending')
 on conflict (id) do update
 set
   email = excluded.email,
   display_name = excluded.display_name,
   user_level = excluded.user_level,
+  play_status = excluded.play_status,
   updated_at = now();
 
 insert into public.game_tables (id, owner_user_id, name, slug)
