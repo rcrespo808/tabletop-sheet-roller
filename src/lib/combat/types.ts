@@ -130,6 +130,7 @@ export type Combatant = {
 export type CombatEncounter = {
   id: string;
   gameTableId?: string;
+  version?: number;
   name: string;
   system: CombatEncounterSystem;
   round: number;

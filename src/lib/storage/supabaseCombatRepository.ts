@@ -4,6 +4,7 @@ import { getSupabaseClient } from "@/lib/storage/supabaseClient";
 type SupabaseCombatEncounterRow = {
   id: string;
   game_table_id: string | null;
+  version?: number | null;
   name: string;
   system: string | null;
   round: number;
@@ -29,6 +30,7 @@ function rowToEncounter(row: SupabaseCombatEncounterRow): CombatEncounter {
   return {
     id: row.id,
     gameTableId: row.game_table_id ?? undefined,
+    version: row.version ?? undefined,
     name: row.name,
     system: (row.system as CombatEncounter["system"]) ?? "dnd5e",
     round: row.round,
@@ -52,6 +54,7 @@ function encounterToInsert(encounter: CombatEncounter) {
   return {
     id: encounter.id,
     game_table_id: encounter.gameTableId ?? null,
+    version: encounter.version ?? 1,
     name: encounter.name,
     system: encounter.system ?? null,
     round: encounter.round,

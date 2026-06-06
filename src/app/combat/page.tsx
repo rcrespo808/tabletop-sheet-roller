@@ -12,7 +12,7 @@ import {
   Swords,
   X
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AuthPanel } from "@/components/AuthPanel";
 import { CombatLogDrawer } from "@/components/combat/CombatLogDrawer";
 import { CombatModeTabs, type CombatMode } from "@/components/combat/CombatModeTabs";
@@ -59,6 +59,7 @@ import {
   resolvePendingCombatAction,
   type CombatResolutionResult
 } from "@/lib/combat/resolveCombatAction";
+import { useCombatEncounterRealtime } from "@/lib/combat/useCombatEncounterRealtime";
 import type { BuiltinCommandId } from "@/lib/combat/rpgmActionCatalog";
 import type {
   Combatant,
@@ -73,6 +74,8 @@ import { createRollLogEntry } from "@/lib/dice/log";
 import { executeSheetAction } from "@/lib/sheets/rollAction";
 import type { RollLogEntry } from "@/lib/sheets/types";
 import type { AuthState } from "@/lib/auth/supabaseAuth";
+import { canDeclareAction, canManageEncounter } from "@/lib/session/permissions";
+import { useGameTableSession } from "@/lib/session/useGameTableSession";
 import { getSystemSheet } from "@/data/characters";
 import { listCharacters } from "@/lib/storage/characterRepository";
 import {
@@ -201,6 +204,7 @@ export default function CombatPage() {
   const [npcQuantity, setNpcQuantity] = useState("1");
   const [selectedTeam, setSelectedTeam] = useState<CombatTeam>("enemies");
   const [selectedSystem, setSelectedSystem] = useState<CombatEncounterSystem>("dnd5e");
+  const tableSession = useGameTableSession(activeEncounter?.gameTableId, authState);
 
   const encounterSystem = activeEncounter?.system ?? selectedSystem;
   const npcTemplates = useMemo(() => listNpcTemplates(encounterSystem), [encounterSystem]);
@@ -217,7 +221,47 @@ export default function CombatPage() {
     ? selectedCharacterId
     : "";
 
-  const refresh = async () => {
+  function syncPlayerActionStatus(encounter: CombatEncounter, userId: string | undefined) {
+    if (!userId) return;
+    const pending = encounter.pendingAction;
+    if (pending?.declaredByUserId === userId) {
+      const target = encounter.combatants.find((c) => c.id === pending.targetId);
+      const label =
+        pending.actionId &&
+        encounter.combatants
+          .find((c) => c.id === pending.combatantId)
+          ?.combatActions.find((a) => a.id === pending.actionId)?.label;
+      setActionStatus(
+        createCombatActionStatus(
+          "declared",
+          `${label ?? pending.actionLabel ?? "Action"} submitted${
+            target ? ` on ${target.instanceName}` : ""
+          }. Waiting for GM to resolve.`
+        )
+      );
+      return;
+    }
+
+    const latest = encounter.actionHistory?.[0];
+    const resultType =
+      latest?.details && typeof latest.details === "object"
+        ? (latest.details as Record<string, unknown>).resultType
+        : undefined;
+    if (
+      latest &&
+      (resultType === "attack_hit" ||
+        resultType === "attack_miss" ||
+        resultType === "damage" ||
+        resultType === "healing")
+    ) {
+      setActionStatus(
+        createCombatActionStatus("resolved", latest.summary.split("\n")[0] ?? latest.summary)
+      );
+      setShowResolvedFeedback(true);
+    }
+  }
+
+  const refresh = useCallback(async () => {
     const [loadedEncounters, loadedCharacters] = await Promise.all([
       listEncounters(),
       listCharacters()
@@ -234,7 +278,36 @@ export default function CombatPage() {
     });
     setCharacters(loadedCharacters);
     setLoading(false);
-  };
+  }, [authState?.user?.id, combatMode]);
+
+  const handleRealtimeEncounterChange = useCallback(
+    (encounter: CombatEncounter) => {
+      setActiveEncounter((current) => {
+        if (!current || current.id !== encounter.id) return current;
+        if (combatMode === "player") {
+          syncPlayerActionStatus(encounter, authState?.user?.id);
+        }
+        return encounter;
+      });
+      setEncounters((current) => {
+        const without = current.filter((entry) => entry.id !== encounter.id);
+        return [encounter, ...without];
+      });
+    },
+    [authState?.user?.id, combatMode]
+  );
+
+  const handleRealtimeEncounterDelete = useCallback((encounterId: string) => {
+    setEncounters((current) => current.filter((entry) => entry.id !== encounterId));
+    setActiveEncounter((current) => (current?.id === encounterId ? null : current));
+  }, []);
+
+  useCombatEncounterRealtime({
+    encounterId: activeEncounter?.id,
+    enabled: getCombatStorageMode() === "supabase" && Boolean(authState?.user),
+    onEncounterChange: handleRealtimeEncounterChange,
+    onEncounterDelete: handleRealtimeEncounterDelete
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -304,46 +377,6 @@ export default function CombatPage() {
     setActionStatus(createCombatActionStatus("resolved", headline));
     await persistEncounter(resolvedEncounter, { logNewHistoryFrom: previousEncounter });
     await addLogEntry(result.logEntry);
-  }
-
-  function syncPlayerActionStatus(encounter: CombatEncounter, userId: string | undefined) {
-    if (!userId) return;
-    const pending = encounter.pendingAction;
-    if (pending?.declaredByUserId === userId) {
-      const target = encounter.combatants.find((c) => c.id === pending.targetId);
-      const label =
-        pending.actionId &&
-        encounter.combatants
-          .find((c) => c.id === pending.combatantId)
-          ?.combatActions.find((a) => a.id === pending.actionId)?.label;
-      setActionStatus(
-        createCombatActionStatus(
-          "declared",
-          `${label ?? pending.actionLabel ?? "Action"} submitted${
-            target ? ` on ${target.instanceName}` : ""
-          }. Waiting for GM to resolve.`
-        )
-      );
-      return;
-    }
-
-    const latest = encounter.actionHistory?.[0];
-    const resultType =
-      latest?.details && typeof latest.details === "object"
-        ? (latest.details as Record<string, unknown>).resultType
-        : undefined;
-    if (
-      latest &&
-      (resultType === "attack_hit" ||
-        resultType === "attack_miss" ||
-        resultType === "damage" ||
-        resultType === "healing")
-    ) {
-      setActionStatus(
-        createCombatActionStatus("resolved", latest.summary.split("\n")[0] ?? latest.summary)
-      );
-      setShowResolvedFeedback(true);
-    }
   }
 
   function handleSelectTargetId(targetId: string) {
@@ -741,9 +774,15 @@ export default function CombatPage() {
     activeEncounter && currentCombatant
       ? getValidTargets(activeEncounter, currentCombatant, { showAll: showAllTargets })
       : [];
-  const gmUser = isGm(authState);
-  const canManageCombatSession = canManageCombat(authState);
-  const activeOwnedByUser = isPlayerControlledByCurrentUser(currentCombatant, authState);
+  const gmUser = tableSession.isGm || isGm(authState);
+  const canManageCombatSession =
+    canManageCombat(authState) ||
+    (activeEncounter
+      ? canManageEncounter(tableSession.seatContext, activeEncounter)
+      : tableSession.isGm);
+  const activeOwnedByUser =
+    canDeclareAction(tableSession.seatContext, activeEncounter, currentCombatant?.id) ||
+    isPlayerControlledByCurrentUser(currentCombatant, authState);
   const canPlayerEndTurn = Boolean(
     activeEncounter?.status === "active" && currentCombatant && activeOwnedByUser
   );
@@ -754,7 +793,10 @@ export default function CombatPage() {
   const playerOwnedCombatants =
     activeEncounter?.combatants.filter((combatant) =>
       authState?.user?.id
-        ? combatant.controlledByUserId === authState.user.id
+        ? combatant.controlledByUserId === authState.user.id ||
+          Boolean(
+            combatant.sourceId && tableSession.controlledCharacterIds.includes(combatant.sourceId)
+          )
         : combatant.team === "players"
     ) ?? [];
 

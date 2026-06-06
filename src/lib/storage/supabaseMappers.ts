@@ -16,6 +16,7 @@ export type CharacterProfileRow = {
   owner_user_id: string | null;
   owner_label: string | null;
   character_kind: CharacterKind | null;
+  game_table_id?: string | null;
   name: string;
   subtitle: string | null;
   concept: string | null;
@@ -183,6 +184,7 @@ export function rowToCharacterProfile(row: CharacterProfileRow): CharacterProfil
     ownerUserId: row.owner_user_id ?? undefined,
     ownerLabel: row.owner_label ?? undefined,
     characterKind: row.character_kind ?? "player_character",
+    gameTableId: row.game_table_id ?? undefined,
     name: row.name,
     subtitle: row.subtitle ?? undefined,
     concept: row.concept ?? undefined,
@@ -205,6 +207,7 @@ export function characterProfileToInsert(profile: CharacterProfile) {
     owner_user_id: profile.ownerUserId ?? undefined,
     owner_label: profile.ownerLabel ?? null,
     character_kind: profile.characterKind ?? "player_character",
+    game_table_id: profile.gameTableId ?? null,
     name: profile.name,
     subtitle: profile.subtitle ?? null,
     concept: profile.concept ?? null,
@@ -224,6 +227,7 @@ export function characterProfileToUpdate(profile: CharacterProfile) {
     owner_user_id: profile.ownerUserId ?? undefined,
     owner_label: profile.ownerLabel ?? null,
     character_kind: profile.characterKind ?? "player_character",
+    game_table_id: profile.gameTableId ?? null,
     name: profile.name,
     subtitle: profile.subtitle ?? null,
     concept: profile.concept ?? null,

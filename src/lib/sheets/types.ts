@@ -252,6 +252,7 @@ export type CharacterProfile = {
   ownerUserId?: string;
   ownerLabel?: string;
   characterKind?: CharacterKind;
+  gameTableId?: string;
   name: string;
   subtitle?: string;
   concept?: string;
