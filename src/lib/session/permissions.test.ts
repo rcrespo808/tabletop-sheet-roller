@@ -44,10 +44,20 @@ describe("resolveSeatRole", () => {
     assert.equal(role, "spectator");
   });
 
-  it("returns player without table even if profile is gm", () => {
+  it("returns gm without table when profile is gm", () => {
     const role = resolveSeatRole({
       userId: "user-1",
       profile: { userLevel: "gm" } as never,
+      table: null,
+      members: []
+    });
+    assert.equal(role, "gm");
+  });
+
+  it("returns player without table when profile is player", () => {
+    const role = resolveSeatRole({
+      userId: "user-1",
+      profile: { userLevel: "player" } as never,
       table: null,
       members: []
     });

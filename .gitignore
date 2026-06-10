@@ -5,6 +5,8 @@ dist/
 build/
 tsconfig.tsbuildinfo
 *.log
+
+# Local environment files. Keep secrets out of git.
 .env*
 !.env.example
 .tools/

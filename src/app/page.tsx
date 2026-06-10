@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Coins, FileText, Gift, Sparkles, Swords, Users } from "lucide-react";
+import { BookOpen, Coins, FileText, Gift, RefreshCw, Sparkles, Swords, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ActiveTableBar } from "@/components/campaign/ActiveTableBar";
 import { AuthPanel } from "@/components/AuthPanel";
 import type { AuthState } from "@/lib/auth/supabaseAuth";
+import { useRealtimeTableSubscription } from "@/lib/realtime/useRealtimeTableSubscription";
 import { useCampaignSeat } from "@/lib/session/useCampaignSeat";
 import { CharacterProfileCard } from "@/components/CharacterProfileCard";
 import { CreateCharacterPanel } from "@/components/CreateCharacterPanel";
@@ -24,24 +25,42 @@ export default function HomePage() {
   const campaignSeat = useCampaignSeat(authState);
   const [profiles, setProfiles] = useState<CharacterProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshingProfiles, setRefreshingProfiles] = useState(false);
   const [storageMode, setStorageMode] = useState<StorageMode>("local");
 
   const refreshProfiles = useCallback(async () => {
-    const next = await listCharacters();
-    setProfiles(next);
-    setStorageMode(getStorageMode());
-    setLoading(false);
+    setRefreshingProfiles(true);
+    try {
+      const next = await listCharacters();
+      setProfiles(next);
+      setStorageMode(getStorageMode());
+    } catch (error) {
+      console.warn("Failed to sync character profiles", error);
+      setStorageMode(getStorageMode());
+    } finally {
+      setLoading(false);
+      setRefreshingProfiles(false);
+    }
   }, []);
 
   useEffect(() => {
     let cancelled = false;
 
-    listCharacters().then((next) => {
-      if (cancelled) return;
-      setProfiles(next);
-      setStorageMode(getStorageMode());
-      setLoading(false);
-    });
+    listCharacters()
+      .then((next) => {
+        if (cancelled) return;
+        setProfiles(next);
+        setStorageMode(getStorageMode());
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.warn("Failed to load character profiles", error);
+        setStorageMode(getStorageMode());
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
 
     return () => {
       cancelled = true;
@@ -52,6 +71,17 @@ export default function HomePage() {
     setAuthState(state);
     void refreshProfiles();
   }, [refreshProfiles]);
+
+  const handleRealtimeProfilesChange = useCallback(() => {
+    void refreshProfiles();
+  }, [refreshProfiles]);
+
+  useRealtimeTableSubscription({
+    channelName: "character-profiles-gallery",
+    enabled: Boolean(authState.user),
+    onChange: handleRealtimeProfilesChange,
+    table: "character_profiles"
+  });
 
   async function addProfile(profile: CharacterProfile) {
     await saveCharacter(profile);
@@ -78,6 +108,19 @@ export default function HomePage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StorageStatusBadge mode={storageMode} />
+              <button
+                aria-label="Sync characters"
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-cyan-500/35 bg-cyan-950/35 px-3 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-900/45 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={loading || refreshingProfiles}
+                onClick={() => void refreshProfiles()}
+                type="button"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshingProfiles ? "animate-spin" : ""}`}
+                  aria-hidden="true"
+                />
+                Sync
+              </button>
               <Link
                 className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
                 href="/codex"

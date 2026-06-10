@@ -1,16 +1,19 @@
 # Deployment
 
-This repo uses GitHub Actions for CI checks and Supabase migrations. Vercel is expected to deploy the Next.js app through its GitHub integration.
+This repo uses GitHub Actions for CI checks, Supabase migrations, and production Vercel deploys.
 
 Do not commit `.env.local`, Supabase access tokens, database passwords, service-role keys, or Vercel tokens.
 
 ## Vercel
 
-Vercel can stay connected to GitHub for default preview behavior, and this repo also includes an optional GitHub Actions deploy workflow using the Vercel CLI for controlled production deployments.
+Production deploys are built by `.github/workflows/deploy.yml` with the Vercel CLI. The production build env comes from GitHub Actions secrets, not from committed files.
 
-Add these environment variables in Vercel Project Settings:
+Required GitHub Actions secrets for app deployment:
 
 ```env
+VERCEL_TOKEN=<Vercel token>
+VERCEL_ORG_ID=<Vercel team/user id>
+VERCEL_PROJECT_ID=<Vercel project id>
 NEXT_PUBLIC_SUPABASE_URL=https://toogirtxlnsbtvmqcqgw.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<Supabase publishable key>
 NEXT_PUBLIC_SITE_URL=https://tabletop-sheet-roller.vercel.app
@@ -18,7 +21,7 @@ NEXT_PUBLIC_SITE_URL=https://tabletop-sheet-roller.vercel.app
 
 `NEXT_PUBLIC_SITE_URL` must be your canonical production origin (no trailing slash). The app sends email verification redirects to `{NEXT_PUBLIC_SITE_URL}/auth/confirm`.
 
-The publishable key is intended for browser use, but it is still environment-specific and should be managed in Vercel rather than hardcoded in source.
+Vercel Project Settings are optional for dashboard-triggered rebuilds or preview deployments. The GitHub Actions production path passes the `NEXT_PUBLIC_*` secrets into `vercel build` on the runner and deploys the prebuilt output.
 
 ## Email verification and auth redirects
 
@@ -36,9 +39,9 @@ That script patches the hosted Supabase project auth config so `site_url` matche
 - Local dev URLs (`localhost`, `127.0.0.1`)
 - `https://*-*.vercel.app/auth/confirm` for preview deployments
 
-Add the same `NEXT_PUBLIC_SITE_URL` value to GitHub Actions secrets and Vercel env vars so client redirects and the Supabase dashboard stay aligned.
+Keep `NEXT_PUBLIC_SITE_URL` in GitHub Actions secrets aligned with the Supabase auth config so client redirects and the Supabase dashboard stay aligned.
 
-For local-only testing without CI, you can still verify accounts at `http://localhost:3000/auth/confirm` after adding that URL under Supabase **Authentication → URL Configuration → Redirect URLs**.
+For local-only testing without CI, you can still verify accounts at `http://localhost:3000/auth/confirm` after adding that URL under Supabase **Authentication -> URL Configuration -> Redirect URLs**.
 
 ## GitHub Actions
 
@@ -58,7 +61,7 @@ Add this repository variable only if you want to disable automatic migrations:
 SUPABASE_MIGRATIONS_ENABLED=false
 ```
 
-By default, pushes that touch `supabase/**` run the migration workflow when the Supabase secrets above are configured.
+By default, pushes that touch `supabase/**` run the migration workflow when the Supabase secrets above are configured. Pushes to `main` also run the unified deploy workflow, which attempts migrations before app deployment.
 
 ## Workflows
 
@@ -107,6 +110,6 @@ Required repository **secrets** for app deployment:
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `NEXT_PUBLIC_SITE_URL`
 
-When deploying through GitHub Actions, the workflow passes the `NEXT_PUBLIC_*` secrets into `vercel build` on the runner. Keep the same values in Vercel Project Settings for dashboard redeploys and `vercel pull` consistency.
+When deploying through GitHub Actions, the workflow passes the `NEXT_PUBLIC_*` secrets into `vercel build` on the runner. Because the workflow deploys a prebuilt Next.js output, the current app does not need Supabase runtime secrets configured in Vercel for production.
 
-The deploy workflow runs `vercel pull` and `vercel build`, so Supabase runtime environment variables should stay configured in both Vercel Project Settings and GitHub Actions secrets.
+If future server routes or background jobs need server-only runtime variables, add those to the Vercel project or sync them from GitHub Actions before deploying.

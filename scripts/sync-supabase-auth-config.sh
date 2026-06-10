@@ -6,13 +6,13 @@ if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ] || [ -z "${SUPABASE_PROJECT_ID:-}" ]; the
   exit 0
 fi
 
-DEFAULT_SITE_URL="https://tabletop-sheet-roller.vercel.app"
-SITE_URL="${NEXT_PUBLIC_SITE_URL:-$DEFAULT_SITE_URL}"
-SITE_URL="${SITE_URL%/}"
-
 if [ -z "${NEXT_PUBLIC_SITE_URL:-}" ]; then
-  echo "NEXT_PUBLIC_SITE_URL not set; using default ${DEFAULT_SITE_URL}"
+  echo "NEXT_PUBLIC_SITE_URL is required to sync Supabase auth URL config."
+  exit 1
 fi
+
+SITE_URL="${NEXT_PUBLIC_SITE_URL}"
+SITE_URL="${SITE_URL%/}"
 CONFIRM_URL="${SITE_URL}/auth/confirm"
 
 payload="$(jq -n \

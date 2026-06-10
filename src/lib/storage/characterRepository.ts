@@ -20,19 +20,19 @@ import { collectProfileImageUrls } from "@/lib/storage/characterImages";
 import type { StorageMode } from "@/lib/storage/types";
 import type { CharacterProfile } from "@/lib/sheets/types";
 
-let lastStorageMode: StorageMode = isSupabaseConfigured() ? "supabase" : "local";
+let lastStorageMode: StorageMode = isSupabaseConfigured() ? "auth-required" : "local";
 
 export function getStorageMode(): StorageMode {
   return lastStorageMode;
 }
 
-function mergeProfiles(primary: CharacterProfile[], fallback: CharacterProfile[]): CharacterProfile[] {
+function mergeProfiles(fallback: CharacterProfile[], primary: CharacterProfile[]): CharacterProfile[] {
   const merged = new Map<string, CharacterProfile>();
 
-  for (const profile of primary) {
+  for (const profile of fallback) {
     merged.set(profile.id, profile);
   }
-  for (const profile of fallback) {
+  for (const profile of primary) {
     merged.set(profile.id, profile);
   }
 
@@ -63,11 +63,20 @@ async function syncProfileImageAssets(profile: CharacterProfile): Promise<void> 
 
 export async function listCharacters(): Promise<CharacterProfile[]> {
   if (isSupabaseConfigured()) {
+    const authState = await getCurrentAuthState();
+    if (!authState.user) {
+      lastStorageMode = "auth-required";
+      return listLocalCharacters();
+    }
+
     try {
       const remote = await listSupabaseCharacters();
       lastStorageMode = "supabase";
       const local = await listLocalCharacters();
-      return withSeedIfEmpty(mergeProfiles(remote, local));
+      for (const profile of remote) {
+        await saveLocalCharacter(profile);
+      }
+      return withSeedIfEmpty(mergeProfiles(local, remote));
     } catch (error) {
       console.warn("[characterRepository] Supabase list failed, using local storage.", error);
       lastStorageMode = "supabase-fallback";
@@ -80,17 +89,18 @@ export async function listCharacters(): Promise<CharacterProfile[]> {
 }
 
 export async function getCharacter(id: string): Promise<CharacterProfile | null> {
-  const local = await getLocalCharacter(id);
-
-  if (local) {
-    return local;
-  }
-
   if (isSupabaseConfigured()) {
+    const authState = await getCurrentAuthState();
+    if (!authState.user) {
+      lastStorageMode = "auth-required";
+      return getLocalCharacter(id);
+    }
+
     try {
       const remote = await getSupabaseCharacter(id);
       if (remote) {
         lastStorageMode = "supabase";
+        await saveLocalCharacter(remote);
         return remote;
       }
     } catch (error) {
@@ -101,7 +111,7 @@ export async function getCharacter(id: string): Promise<CharacterProfile | null>
     lastStorageMode = "local";
   }
 
-  return null;
+  return getLocalCharacter(id);
 }
 
 export async function saveCharacter(profile: CharacterProfile): Promise<CharacterProfile> {

@@ -127,18 +127,21 @@ export const reverendOfRatsProfile: CharacterProfile = {
         {
           id: "nwod-congregation-bite",
           type: "nwod-check",
-          label: "Congregation Bite",
+          label: "Rat Swarm Attack",
           attribute: "dexterity",
           skill: "brawl",
-          modifier: 2,
+          modifier: 10,
           again: 9,
           rote: false,
-          notes: "Swarm teeth and claws in close quarters.",
+          notes:
+            "The Reverend's congregation boils over the target in a coordinated swarm of teeth, claws, and dragging bodies. Roll 16d10.",
           source: "custom",
           metadata: {
             combatKind: "attack",
             combatCategory: "fight",
-            damage: 2
+            damage: 2,
+            poolDice: "16d10",
+            attackTheme: "rat_swarm"
           }
         },
         {
@@ -242,16 +245,18 @@ export const reverendOfRatsProfile: CharacterProfile = {
         {
           id: "dnd-bite-of-the-congregation",
           type: "dnd-roll",
-          label: "Bite of the Congregation",
+          label: "Rat Swarm Attack",
           roll: "1d20+9",
-          notes: "Swarm attack. On hit, deal piercing/necrotic swarm damage.",
+          notes:
+            "The Reverend drives a living carpet of rats over the target. On hit, deal 4d10 piercing swarm damage.",
           source: "custom",
           metadata: {
             combatKind: "attack",
             combatCategory: "fight",
             attackRoll: "1d20+9",
-            damageRoll: "4d6+5",
-            damageType: "piercing"
+            damageRoll: "4d10",
+            damageType: "piercing",
+            attackTheme: "rat_swarm"
           }
         },
         {

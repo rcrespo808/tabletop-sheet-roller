@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, ScrollText } from "lucide-react";
+import { ArrowLeft, RefreshCw, ScrollText } from "lucide-react";
 import { getAvailableSystems, getSystemSheet } from "@/data/characters";
 import type { CharacterProfile, GameSystem } from "@/lib/sheets/types";
 import { SystemTabs } from "./SystemTabs";
@@ -10,6 +10,8 @@ type CharacterHeaderProps = {
   onSystemChange: (system: GameSystem) => void;
   isRollLogOpen?: boolean;
   onRollLogToggle?: () => void;
+  isRefreshing?: boolean;
+  onRefresh?: () => void;
 };
 
 export function CharacterHeader({
@@ -17,7 +19,9 @@ export function CharacterHeader({
   selectedSystem,
   onSystemChange,
   isRollLogOpen = false,
-  onRollLogToggle
+  onRollLogToggle,
+  isRefreshing = false,
+  onRefresh
 }: CharacterHeaderProps) {
   const systems = getAvailableSystems(profile);
   const sheet = getSystemSheet(profile, selectedSystem);
@@ -49,6 +53,21 @@ export function CharacterHeader({
           <div className="flex flex-wrap items-center gap-3">
             {sheet?.levelLabel ? (
               <p className="text-sm text-muted-foreground">{sheet.levelLabel}</p>
+            ) : null}
+            {onRefresh ? (
+              <button
+                aria-label="Sync character"
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-cyan-500/35 bg-cyan-950/35 px-3 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-900/45 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isRefreshing}
+                onClick={onRefresh}
+                type="button"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                  aria-hidden="true"
+                />
+                Sync
+              </button>
             ) : null}
             {onRollLogToggle ? (
               <button

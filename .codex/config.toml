@@ -1,0 +1,23 @@
+# Project-scoped Codex configuration for Dicer.
+# This file contains no secrets. Configure real values in the active Codex
+# environment, remote host, or local shell.
+
+[mcp_servers.dicer-content]
+enabled = true
+command = "npm"
+args = ["run", "content:mcp", "--silent"]
+startup_timeout_sec = 20
+tool_timeout_sec = 180
+default_tools_approval_mode = "prompt"
+experimental_environment = "remote"
+env_vars = [
+  { name = "NEXT_PUBLIC_SUPABASE_URL", source = "remote" },
+  { name = "SUPABASE_SERVICE_ROLE_KEY", source = "remote" },
+  { name = "SUPABASE_SECRET_KEY", source = "remote" },
+  { name = "SUPABASE_DB_URL", source = "remote" },
+  { name = "DATABASE_URL", source = "remote" },
+  { name = "SUPABASE_PROJECT_ID", source = "remote" },
+  { name = "OPENAI_API_KEY", source = "remote" },
+  { name = "DICER_CONTENT_MODEL", source = "remote" },
+  { name = "DICER_CONTENT_RUN_DIR", source = "remote" }
+]

@@ -19,5 +19,7 @@ export function resolveSeatRole(input: {
 
   if (input.gameTableId) return "spectator";
 
+  if (input.profile?.userLevel === "gm") return "gm";
+
   return "player";
 }

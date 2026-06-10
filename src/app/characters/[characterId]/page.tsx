@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { CharacterHeader } from "@/components/CharacterHeader";
 import { CharacterSheetWorkspace } from "@/components/CharacterSheetWorkspace";
 import { GlassPanel } from "@/components/GlassPanel";
 import { getAvailableSystems } from "@/data/characters";
 import { getCurrentAuthState, type AuthState } from "@/lib/auth/supabaseAuth";
+import { useRealtimeTableSubscription } from "@/lib/realtime/useRealtimeTableSubscription";
 import { useCampaignSeat } from "@/lib/session/useCampaignSeat";
 import { resolveCharacterLookup, saveCharacter } from "@/lib/storage/characterRepository";
 import type { CharacterProfile, GameSystem } from "@/lib/sheets/types";
@@ -21,6 +22,7 @@ function CharacterPageContent({ characterId }: { characterId: string }) {
   const [profile, setProfile] = useState<CharacterProfile | null>(null);
   const [initialSystem, setInitialSystem] = useState<GameSystem | undefined>();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [systemByCharacter, setSystemByCharacter] = useState<Record<string, GameSystem>>({});
   const [isRollLogOpen, setIsRollLogOpen] = useState(false);
   const [authState, setAuthState] = useState<AuthState>({
@@ -37,17 +39,54 @@ function CharacterPageContent({ characterId }: { characterId: string }) {
   useEffect(() => {
     let cancelled = false;
 
-    resolveCharacterLookup(characterId).then((lookup) => {
-      if (cancelled) return;
-      setProfile(lookup?.profile ?? null);
-      setInitialSystem(lookup?.initialSystem);
-      setLoading(false);
-    });
+    resolveCharacterLookup(characterId)
+      .then((lookup) => {
+        if (cancelled) return;
+        setProfile(lookup?.profile ?? null);
+        setInitialSystem(lookup?.initialSystem);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.warn("Failed to load character profile", error);
+        setProfile(null);
+        setInitialSystem(undefined);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
 
     return () => {
       cancelled = true;
     };
   }, [characterId]);
+
+  const refreshProfile = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const lookup = await resolveCharacterLookup(characterId);
+      setProfile(lookup?.profile ?? null);
+      setInitialSystem(lookup?.initialSystem);
+    } catch (error) {
+      console.warn("Failed to sync character profile", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [characterId]);
+
+  const handleRealtimeProfileChange = useCallback(() => {
+    void refreshProfile();
+  }, [refreshProfile]);
+
+  const realtimeProfileId = profile?.id ?? characterId;
+
+  useRealtimeTableSubscription({
+    channelName: `character-profile-${realtimeProfileId}`,
+    enabled: Boolean(authState.user && realtimeProfileId),
+    filter: `id=eq.${realtimeProfileId}`,
+    onChange: handleRealtimeProfileChange,
+    table: "character_profiles"
+  });
 
   const activeSystem = useMemo(() => {
     if (!profile) return null;
@@ -109,6 +148,8 @@ function CharacterPageContent({ characterId }: { characterId: string }) {
         profile={profile}
         selectedSystem={activeSystem}
         onSystemChange={handleSystemChange}
+        isRefreshing={refreshing}
+        onRefresh={() => void refreshProfile()}
       />
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
