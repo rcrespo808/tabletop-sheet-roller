@@ -46,6 +46,10 @@ export type RewardSource = {
   entryId?: string;
   entryLabel?: string;
   codexEntryName?: string;
+  pathId?: string;
+  pathName?: string;
+  nodeId?: string;
+  outcomeLabel?: string;
 };
 
 export const LOCAL_DEMO_CAMPAIGN_ID = "local-demo-campaign";

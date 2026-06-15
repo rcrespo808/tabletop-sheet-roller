@@ -5,6 +5,7 @@ import {
   canBuyFromMarket,
   canManageCodex,
   canManageHandouts,
+  canManagePaths,
   canManageTable,
   createSeatContext
 } from "@/lib/session/permissions";
@@ -138,7 +139,9 @@ describe("seat permissions", () => {
     });
     assert.equal(canManageHandouts(gmSeat, false), true);
     assert.equal(canManageCodex(gmSeat, false), true);
+    assert.equal(canManagePaths(gmSeat, false), true);
     assert.equal(canManageHandouts(playerSeat, false), false);
+    assert.equal(canManagePaths(playerSeat, false), false);
     assert.equal(canManageHandouts(playerSeat, true), true);
   });
 });

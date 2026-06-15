@@ -11,6 +11,7 @@ import {
   ImageIcon,
   PackagePlus,
   Plus,
+  Route,
   Save,
   Trash2,
   Upload,
@@ -462,9 +463,11 @@ export default function HandoutsPage() {
 
   useEffect(() => {
     if (!gameTableId) {
-      setHandouts([]);
-      setApplications([]);
-      setLoading(false);
+      queueMicrotask(() => {
+        setHandouts([]);
+        setApplications([]);
+        setLoading(false);
+      });
       return;
     }
 
@@ -878,6 +881,7 @@ export default function HandoutsPage() {
         storageMode,
         moduleLinks: [
           { href: "/", label: "Characters", icon: Home },
+          { href: "/paths", label: "Paths", icon: Route },
           { href: "/codex", label: "Codex", icon: BookOpen },
           { href: "/loot", label: "Loot", icon: Gift }
         ]

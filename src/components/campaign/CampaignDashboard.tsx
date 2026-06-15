@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Coins, FileText, Gift, Swords } from "lucide-react";
+import { BookOpen, Coins, FileText, Gift, Route, Swords } from "lucide-react";
 import { GlassPanel } from "@/components/GlassPanel";
 import { setActiveTableId } from "@/lib/session/activeTable";
 
 const MODULE_LINKS = [
   { href: "/combat", label: "Combat", icon: Swords },
+  { href: "/paths", label: "Paths", icon: Route },
   { href: "/markets", label: "Markets", icon: Coins },
   { href: "/handouts", label: "Handouts", icon: FileText },
   { href: "/loot", label: "Loot", icon: Gift },

@@ -8,13 +8,14 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "npx tsx --test src/lib/sheets/sheetActionCombat.test.ts src/lib/combat/resolveCombatAction.test.ts src/lib/combat/combatEngine.turn.test.ts src/lib/session/permissions.test.ts src/lib/auth/accessControl.test.ts tools/dicer-content-mcp/src/*.test.ts",
+    "test": "npx tsx --test src/lib/sheets/sheetActionCombat.test.ts src/lib/combat/resolveCombatAction.test.ts src/lib/combat/combatEngine.turn.test.ts src/lib/session/permissions.test.ts src/lib/auth/accessControl.test.ts src/lib/paths/pathEngine.test.ts src/lib/paths/pathValidation.test.ts tools/dicer-content-mcp/src/*.test.ts",
     "content:mcp": "tsx tools/dicer-content-mcp/src/server.ts",
     "content:mcp:test": "tsx --test tools/dicer-content-mcp/src/*.test.ts",
     "test:combat": "npm run test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
+    "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.106.2",
     "dotenv": "17.4.2",
     "fast-json-patch": "3.1.1",

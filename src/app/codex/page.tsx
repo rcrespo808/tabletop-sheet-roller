@@ -7,6 +7,7 @@ import {
   Edit3,
   FileUp,
   Plus,
+  Route,
   Save,
   Search,
   Trash2,
@@ -934,7 +935,11 @@ export default function CodexPage() {
         title: "Reusable Table Content",
         description: "Campaign abilities, items, conditions, and lore entries shared across characters.",
         storageMode,
-        moduleLinks: [{ href: "/", label: "Characters", icon: UserPlus }],
+        moduleLinks: [
+          { href: "/", label: "Characters", icon: UserPlus },
+          { href: "/paths", label: "Paths", icon: Route },
+          { href: "/handouts", label: "Handouts", icon: BookOpen }
+        ],
         actions: (
           <button
             className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"

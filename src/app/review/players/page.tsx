@@ -43,7 +43,7 @@ export default function ReviewPlayersPage() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    queueMicrotask(() => void refresh());
   }, [refresh]);
 
   async function handleReview(userId: string, action: "approve" | "reject") {

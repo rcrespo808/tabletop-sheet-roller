@@ -127,6 +127,10 @@ export function canManageCodex(seat: SeatContext, localMode = false): boolean {
   return canManageCampaignModule(seat, { localMode });
 }
 
+export function canManagePaths(seat: SeatContext, localMode = false): boolean {
+  return canManageCampaignModule(seat, { localMode });
+}
+
 export function canManageCharacterRewards(
   seat: SeatContext,
   character: CharacterProfile | null,

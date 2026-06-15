@@ -77,7 +77,7 @@ export default function TableLobbyPage() {
   useEffect(() => {
     if (!tableId) return;
     setActiveTableId(tableId);
-    void refreshCharacters();
+    queueMicrotask(() => void refreshCharacters());
   }, [refreshCharacters, tableId]);
 
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function TableLobbyPage() {
     for (const assignment of session.assignments) {
       drafts[assignment.characterId] = assignment.userId;
     }
-    setAssignmentDrafts(drafts);
+    queueMicrotask(() => setAssignmentDrafts(drafts));
   }, [session.assignments]);
 
   const myAssignments = useMemo(

@@ -59,7 +59,7 @@ export default function TablesPage() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    queueMicrotask(() => void refresh());
   }, [refresh]);
 
   async function handleCreateTable(event: React.FormEvent) {
@@ -73,7 +73,7 @@ export default function TablesPage() {
     try {
       const created = await createTable(tableName.trim());
       setTableName("");
-      setMessage(`Created ${created.name}. Opening app…`);
+      setMessage(`Created ${created.name}. Opening app...`);
       setActiveTableId(created.id);
       if (isSupabaseConfigured()) {
         window.location.href = "/";
