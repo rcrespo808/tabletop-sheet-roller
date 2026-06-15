@@ -4,15 +4,18 @@ import Link from "next/link";
 import {
   Archive,
   BookOpen,
+  Coins,
   Download,
   Eye,
   EyeOff,
   FileText,
+  Gift,
   Home,
   Lock,
   Plus,
   Route,
   Save,
+  Swords,
   Trash2,
   Unlock,
   Upload
@@ -584,8 +587,11 @@ export default function PathsPage() {
           "Node-based campaign routes for travel, dungeons, story arcs, and progression choices.",
         storageMode,
         moduleLinks: [
-          { href: "/", label: "Home", icon: Home },
+          { href: "/", label: "Characters", icon: Home },
+          { href: "/combat", label: "Combat", icon: Swords },
+          { href: "/markets", label: "Markets", icon: Coins },
           { href: "/handouts", label: "Handouts", icon: FileText },
+          { href: "/loot", label: "Loot", icon: Gift },
           { href: "/codex", label: "Codex", icon: BookOpen }
         ]
       }}
@@ -656,7 +662,7 @@ export default function PathsPage() {
         </GlassPanel>
       ) : loading ? (
         <GlassPanel level="tertiary" className="p-6 text-sm text-muted-foreground">
-          Loading paths…
+          Loading paths...
         </GlassPanel>
       ) : (
         <MasterDetailLayout

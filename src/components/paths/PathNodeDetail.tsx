@@ -202,22 +202,28 @@ export function PathNodeDetail({
           <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Apply to characters
           </h4>
-          <div className="flex flex-wrap gap-2">
-            {characters.map((character) => (
-              <button
-                className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition ${
-                  targetCharacterIds.includes(character.id)
-                    ? "border-violet-500/45 bg-violet-500/20 text-violet-100"
-                    : "border-slate-600/40 bg-slate-900/50 text-slate-300 hover:bg-slate-800/60"
-                }`}
-                key={character.id}
-                onClick={() => toggleCharacter(character.id)}
-                type="button"
-              >
-                {character.name}
-              </button>
-            ))}
-          </div>
+          {characters.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {characters.map((character) => (
+                <button
+                  className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition ${
+                    targetCharacterIds.includes(character.id)
+                      ? "border-violet-500/45 bg-violet-500/20 text-violet-100"
+                      : "border-slate-600/40 bg-slate-900/50 text-slate-300 hover:bg-slate-800/60"
+                  }`}
+                  key={character.id}
+                  onClick={() => toggleCharacter(character.id)}
+                  type="button"
+                >
+                  {character.name}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-md border border-dashed border-slate-600/40 bg-slate-950/30 px-3 py-2 text-xs text-muted-foreground">
+              Add one or more characters from the home page before applying party outcomes.
+            </div>
+          )}
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               checked={overrideExisting}

@@ -1,7 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Coins, FileText, Gift, RefreshCw, Sparkles, Swords, Users } from "lucide-react";
+import {
+  BookOpen,
+  Coins,
+  FileText,
+  Gift,
+  RefreshCw,
+  Route,
+  Sparkles,
+  Swords,
+  Users
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ActiveTableBar } from "@/components/campaign/ActiveTableBar";
 import { AuthPanel } from "@/components/AuthPanel";
@@ -137,6 +147,13 @@ export default function HomePage() {
               </Link>
               <Link
                 className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
+                href="/paths"
+              >
+                <Route className="h-4 w-4" aria-hidden="true" />
+                Paths
+              </Link>
+              <Link
+                className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-700/40 bg-slate-900/60 px-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800/70"
                 href="/handouts"
               >
                 <FileText className="h-4 w-4" aria-hidden="true" />
@@ -211,6 +228,27 @@ export default function HomePage() {
           <CreateCharacterPanel onAdd={addProfile} />
         </div>
 
+        <div className="mt-4">
+          <GlassPanel level="secondary" className="p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Run a progression path</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Add one or more characters here, then open Paths to reveal nodes, resolve
+                  branches, and apply outcomes to the party.
+                </p>
+              </div>
+              <Link
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-violet-500/35 bg-violet-950/40 px-3 text-sm font-semibold text-violet-100 transition hover:bg-violet-900/50"
+                href="/paths"
+              >
+                <Route className="h-4 w-4" aria-hidden="true" />
+                Open Paths
+              </Link>
+            </div>
+          </GlassPanel>
+        </div>
+
         <div className="mb-8 mt-8">
           <h2 className="text-xl font-semibold text-foreground">Your Characters</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -221,7 +259,7 @@ export default function HomePage() {
 
         {loading ? (
           <GlassPanel level="tertiary" className="p-8 text-center">
-            <p className="text-sm text-muted-foreground">Loading characters…</p>
+            <p className="text-sm text-muted-foreground">Loading characters...</p>
           </GlassPanel>
         ) : (
           <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -242,7 +280,7 @@ export default function HomePage() {
         <div className="mt-12 border-t border-slate-700/20 pt-8">
           <GlassPanel level="tertiary" className="p-6 text-center">
             <p className="text-sm text-muted-foreground">
-              {storageStatusForMode(storageMode).message} · session roll log
+              {storageStatusForMode(storageMode).message} - session roll log
             </p>
           </GlassPanel>
         </div>

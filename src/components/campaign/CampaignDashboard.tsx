@@ -28,7 +28,7 @@ export function CampaignDashboard({
       <div>
         <h2 className="text-lg font-semibold text-foreground">Campaign modules</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {memberCount} member{memberCount === 1 ? "" : "s"} · {assignmentCount} character
+          {memberCount} member{memberCount === 1 ? "" : "s"} - {assignmentCount} character
           assignment{assignmentCount === 1 ? "" : "s"}
         </p>
       </div>
