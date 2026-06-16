@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/storage/supabaseClient";
+
+let realtimeSubscriptionId = 0;
+
+function createRealtimeChannelName(baseName: string): string {
+  realtimeSubscriptionId += 1;
+  return `${baseName}-${realtimeSubscriptionId}`;
+}
 
 export type RealtimeTableChangePayload = {
   eventType: "INSERT" | "UPDATE" | "DELETE" | string;
@@ -29,16 +36,23 @@ export function useRealtimeTableSubscription(options: {
   onStatusChange?: (status: RealtimeTableSubscriptionStatus) => void;
 }): void {
   const { channelName, enabled = true, filter, onChange, onStatusChange, table } = options;
+  const onChangeRef = useRef(onChange);
+  const onStatusChangeRef = useRef(onStatusChange);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    onStatusChangeRef.current = onStatusChange;
+  }, [onChange, onStatusChange]);
 
   useEffect(() => {
     const client = getSupabaseClient();
     if (!enabled || !client || !isSupabaseConfigured()) {
-      onStatusChange?.("idle");
+      onStatusChangeRef.current?.("idle");
       return;
     }
 
     const channel = client
-      .channel(channelName)
+      .channel(createRealtimeChannelName(channelName))
       .on(
         "postgres_changes",
         {
@@ -47,12 +61,12 @@ export function useRealtimeTableSubscription(options: {
           table,
           filter
         },
-        (payload) => onChange(payload as RealtimeTableChangePayload)
+        (payload) => onChangeRef.current(payload as RealtimeTableChangePayload)
       )
-      .subscribe((status) => onStatusChange?.(status));
+      .subscribe((status) => onStatusChangeRef.current?.(status));
 
     return () => {
       void client.removeChannel(channel);
     };
-  }, [channelName, enabled, filter, onChange, onStatusChange, table]);
+  }, [channelName, enabled, filter, table]);
 }
