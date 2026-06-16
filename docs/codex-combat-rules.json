@@ -1,0 +1,140 @@
+[
+  {
+    "id": "00000000-0000-4000-8000-000000000401",
+    "campaignId": "00000000-0000-4000-8000-000000000013",
+    "system": "dnd5e",
+    "type": "note",
+    "name": "D&D Combat Flow",
+    "subtitle": "Round structure, initiative, and turn order",
+    "description": "A compact D&D combat loop for running encounters in Dicer.",
+    "rulesText": "1. Establish surprise, positions, visibility, and encounter goals. 2. Roll initiative and order combatants from highest to lowest. 3. Each round represents a short burst of action in which every combatant gets a turn. 4. On a turn, a combatant can move up to speed, take one action, use one bonus action if a feature allows it, interact with one simple object, and possibly take a reaction outside the turn. 5. Repeat rounds until the opposition is defeated, escapes, surrenders, or the scene goal is resolved. 6. Track concentration, conditions, cover, ongoing effects, and death saves at their stated timing.",
+    "tags": ["combat", "initiative", "rounds", "turns", "srd", "reference"],
+    "visibility": "public",
+    "sourceLabel": "D&D SRD 5.2 summary",
+    "metadata": {
+      "seedKey": "codex|dnd5e|combat-flow",
+      "researchFile": "docs/codex-combat-rules-research.md",
+      "sourceUrls": [
+        "https://www.dndbeyond.com/srd",
+        "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.pdf"
+      ],
+      "license": "CC-BY-4.0 SRD summary",
+      "attribution": "This work includes material from the System Reference Document 5.2 (\"SRD 5.2\") by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode."
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000402",
+    "campaignId": "00000000-0000-4000-8000-000000000013",
+    "system": "dnd5e",
+    "type": "note",
+    "name": "D&D Actions, Movement, and Reactions",
+    "subtitle": "What a creature can do on and around its turn",
+    "description": "A player-facing reminder for common D&D combat options.",
+    "rulesText": "On your turn, choose an action such as Attack, Cast a Spell, Dash, Disengage, Dodge, Help, Hide, Ready, Search, or Use an Object. Movement can be split before and after actions. A bonus action is available only when a feature, spell, or rule grants one. A reaction is a special response used once between the start of one turn and the start of the next; opportunity attacks and readied actions are common examples. Terrain, grappling, prone posture, cover, visibility, and reach can change what movement or actions are practical.",
+    "tags": ["combat", "actions", "movement", "reaction", "srd", "reference"],
+    "visibility": "public",
+    "sourceLabel": "D&D SRD 5.2 summary",
+    "metadata": {
+      "seedKey": "codex|dnd5e|actions-movement-reactions",
+      "researchFile": "docs/codex-combat-rules-research.md",
+      "sourceUrls": [
+        "https://www.dndbeyond.com/srd",
+        "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.pdf"
+      ],
+      "license": "CC-BY-4.0 SRD summary",
+      "attribution": "This work includes material from the System Reference Document 5.2 (\"SRD 5.2\") by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode."
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000403",
+    "campaignId": "00000000-0000-4000-8000-000000000013",
+    "system": "dnd5e",
+    "type": "note",
+    "name": "D&D Attacks, Damage, and Dropping",
+    "subtitle": "Attack resolution and hit point outcomes",
+    "description": "A concise D&D damage-resolution reference for combat adjudication.",
+    "rulesText": "To resolve an attack, choose a target, determine range, cover, visibility, advantage or disadvantage, then roll the attack against the target's AC. A hit applies the attack's damage and any rider effects. Damage reduces hit points unless resistance, vulnerability, immunity, temporary hit points, or a special rule changes the result. At 0 hit points, monsters often fall out of the fight; player characters usually begin death save procedure unless the table applies a different scene rule. Massive damage, critical hits, concentration checks, and conditions should be handled immediately when triggered.",
+    "tags": ["combat", "attack", "damage", "death-saves", "srd", "reference"],
+    "visibility": "public",
+    "sourceLabel": "D&D SRD 5.2 summary",
+    "metadata": {
+      "seedKey": "codex|dnd5e|attacks-damage-dropping",
+      "researchFile": "docs/codex-combat-rules-research.md",
+      "sourceUrls": [
+        "https://www.dndbeyond.com/srd",
+        "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.pdf"
+      ],
+      "license": "CC-BY-4.0 SRD summary",
+      "attribution": "This work includes material from the System Reference Document 5.2 (\"SRD 5.2\") by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode."
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000404",
+    "campaignId": "00000000-0000-4000-8000-000000000013",
+    "system": "nwod",
+    "type": "note",
+    "name": "NWoD Combat Flow",
+    "subtitle": "Intent-first horror combat loop",
+    "description": "Original Dicer guidance for running NWoD or Chronicles-style combat scenes.",
+    "rulesText": "Start by stating intent: what each side wants and how far they are willing to go. Establish whether the scene is an ambush, chase, brawl, firefight, escape, or supernatural confrontation. Determine initiative using the table's chosen NWoD/Chronicles method, then cycle turns until intent is resolved. On a turn, a character usually takes one meaningful action while reflexive defenses, movement, and reactions are handled as the situation demands. Keep asking whether the fight still matters; surrender, flight, intimidation, environmental collapse, or a bargain can end combat before every opponent is incapacitated.",
+    "tags": ["combat", "initiative", "intent", "nwod", "chronicles", "reference"],
+    "visibility": "public",
+    "sourceLabel": "Original NWoD table summary",
+    "metadata": {
+      "seedKey": "codex|nwod|combat-flow",
+      "researchFile": "docs/codex-combat-rules-research.md",
+      "sourceUrls": [
+        "https://www.paradoxinteractive.com/games/world-of-darkness/community/free-content",
+        "https://www.storytellersvault.com/en/product/260891/cheat-sheet-for-chronicles-of-darkness-rules"
+      ],
+      "license": "Original summary; no proprietary rules text copied",
+      "copyrightNote": "Use the official NWoD/Chronicles rulebook at the table for exact dice formulas, exceptions, and supernatural system text."
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000405",
+    "campaignId": "00000000-0000-4000-8000-000000000013",
+    "system": "nwod",
+    "type": "note",
+    "name": "NWoD Attacks, Defense, and Damage",
+    "subtitle": "Dice-pool combat adjudication",
+    "description": "Original Dicer guidance for attacks and harm in NWoD or Chronicles-style play.",
+    "rulesText": "Build an attack pool from the relevant Attribute plus Skill, then apply equipment, range, cover, visibility, wounds, supernatural effects, and situational modifiers. The defender's relevant defensive traits reduce or complicate the pool when applicable; ambushes, restraints, surprise, or helplessness may remove ordinary defense. Roll the final pool and translate successes into harm according to the table's NWoD/Chronicles edition and weapon rules. Track bashing, lethal, aggravated harm, wound penalties, armor, and tilts or conditions separately so the scene remains readable.",
+    "tags": ["combat", "attack", "defense", "damage", "nwod", "chronicles", "reference"],
+    "visibility": "public",
+    "sourceLabel": "Original NWoD table summary",
+    "metadata": {
+      "seedKey": "codex|nwod|attacks-defense-damage",
+      "researchFile": "docs/codex-combat-rules-research.md",
+      "sourceUrls": [
+        "https://www.paradoxinteractive.com/games/world-of-darkness/community/free-content",
+        "https://www.storytellersvault.com/en/product/260891/cheat-sheet-for-chronicles-of-darkness-rules"
+      ],
+      "license": "Original summary; no proprietary rules text copied",
+      "copyrightNote": "Use the official NWoD/Chronicles rulebook at the table for exact dice formulas, exceptions, and supernatural system text."
+    }
+  },
+  {
+    "id": "00000000-0000-4000-8000-000000000406",
+    "campaignId": "00000000-0000-4000-8000-000000000013",
+    "system": "nwod",
+    "type": "note",
+    "name": "NWoD Combat Intent, Conditions, and Consequences",
+    "subtitle": "Making violence cost something",
+    "description": "Original Dicer guidance for narrative stakes in NWoD or Chronicles-style combat.",
+    "rulesText": "Before dice hit the table, name the stakes: escape, capture, silence a witness, protect someone, seize an object, or survive. Use conditions, tilts, environmental hazards, witnesses, noise, fear, and supernatural attention as consequences, not just hit point equivalents. Offer exits when intent changes: surrender, rout, negotiation, intimidation, or accepting a cost. After combat, resolve medical care, evidence, trauma, debts, law enforcement, occult attention, and relationship fallout. Combat should leave marks on the chronicle even when the characters win.",
+    "tags": ["combat", "conditions", "consequences", "intent", "nwod", "chronicles", "reference"],
+    "visibility": "public",
+    "sourceLabel": "Original NWoD table summary",
+    "metadata": {
+      "seedKey": "codex|nwod|intent-conditions-consequences",
+      "researchFile": "docs/codex-combat-rules-research.md",
+      "sourceUrls": [
+        "https://www.paradoxinteractive.com/games/world-of-darkness/community/free-content",
+        "https://www.storytellersvault.com/en/product/260891/cheat-sheet-for-chronicles-of-darkness-rules"
+      ],
+      "license": "Original summary; no proprietary rules text copied",
+      "copyrightNote": "Use the official NWoD/Chronicles rulebook at the table for exact dice formulas, exceptions, and supernatural system text."
+    }
+  }
+]

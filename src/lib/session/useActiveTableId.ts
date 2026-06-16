@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { getActiveTableId } from "@/lib/session/activeTable";
+import { useEffect, useState } from "react";
+import { getActiveTableId, subscribeActiveTableChange } from "@/lib/session/activeTable";
 
 export function useActiveTableId(): string | undefined {
-  const [activeTableId] = useState<string | undefined>(() => getActiveTableId());
+  const [activeTableId, setActiveTableIdState] = useState<string | undefined>(() =>
+    getActiveTableId()
+  );
+
+  useEffect(() => {
+    return subscribeActiveTableChange(() => {
+      setActiveTableIdState(getActiveTableId());
+    });
+  }, []);
 
   return activeTableId;
 }

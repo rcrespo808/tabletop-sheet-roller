@@ -225,4 +225,108 @@ export const ratChapelPath: BranchingPath = {
   ]
 };
 
-export const starterPaths: BranchingPath[] = [mireRoadPath, ratChapelPath];
+export const nwodBeachTestPath: BranchingPath = {
+  id: "starter-path-nwod-beach-test",
+  gameTableId: LOCAL_DEMO_GAME_TABLE_ID,
+  name: "nWoD Beach Test: The Tide Line",
+  description:
+    "A compact three-stage New World of Darkness test path: investigate a cold beach scene, choose the pier or dunes, then resolve one of two supernatural leads.",
+  status: "draft",
+  visibility: "gm_only",
+  currentNodeIds: ["nwod-beach-start-tide-line"],
+  startNodeId: "nwod-beach-start-tide-line",
+  tags: ["nwod", "beach", "investigation", "starter", "test"],
+  gmNotes:
+    "Simple test path for scenario play. Stage 1 establishes the scene, Stage 2 branches, Stage 3 resolves either the pier witness or dune tracks.",
+  nodes: [
+    node("nwod-beach-start-tide-line", "Stage 1: The Tide Line", "start", {
+      status: "available",
+      subtitle: "Cold open on a moonlit beach",
+      playerText:
+        "Black water claws at the sand. A torn coat lies at the tide line, its pockets full of wet salt and motel matches.",
+      gmText:
+        "nWoD prompt: ask for Wits + Investigation or Wits + Survival. Success reveals two leads: the shuttered pier and the grass-choked dunes.",
+      description: "Opening clue scene for the beach test."
+    }),
+    node("nwod-beach-choice-pier-or-dunes", "Stage 2: Pier or Dunes", "choice", {
+      subtitle: "Two beach paths",
+      playerText:
+        "The pier lights flicker over dark water. Behind you, dune grass bends against a wind that leaves no footprints of its own.",
+      gmText:
+        "Let the players choose a lead. Pier favors social/occult pressure; dunes favor tracking and physical risk.",
+      description: "Branch point for the two test routes."
+    }),
+    node("nwod-beach-pier-drowned-witness", "Stage 3A: The Drowned Witness", "skill_check", {
+      subtitle: "Shuttered pier",
+      playerText:
+        "A soaked figure waits beneath the pier, speaking in borrowed voices and asking who paid for the coat.",
+      gmText:
+        "Suggested rolls: Presence + Empathy to calm it, Manipulation + Occult to bargain, or Resolve + Composure to withstand its whispers.",
+      outcomes: [
+        {
+          type: "log",
+          message: "The party followed the pier lead and confronted the Drowned Witness."
+        }
+      ],
+      metadata: {
+        system: "nwod",
+        stage: 3,
+        branch: "pier",
+        suggestedPools: ["Presence + Empathy", "Manipulation + Occult", "Resolve + Composure"]
+      }
+    }),
+    node("nwod-beach-dunes-salt-tracks", "Stage 3B: Salt Tracks in the Dunes", "condition", {
+      subtitle: "Grass-choked dunes",
+      playerText:
+        "The tracks end in a circle of dry shells. Something under the sand knocks once, then twice, in answer to your breathing.",
+      gmText:
+        "Suggested rolls: Wits + Survival to follow the trail, Dexterity + Athletics to avoid the sink, or Stamina + Resolve against the cold.",
+      outcomes: [
+        {
+          type: "condition_apply",
+          conditionName: "Salt-Cold Shaken",
+          description: "A temporary nWoD-style scene condition from contact with the thing beneath the dunes.",
+          targetMode: "party"
+        },
+        {
+          type: "log",
+          message: "The party followed the dune lead and triggered the Salt-Cold Shaken condition."
+        }
+      ],
+      metadata: {
+        system: "nwod",
+        stage: 3,
+        branch: "dunes",
+        suggestedPools: ["Wits + Survival", "Dexterity + Athletics", "Stamina + Resolve"]
+      }
+    })
+  ],
+  edges: [
+    {
+      id: "nwod-beach-e1",
+      fromNodeId: "nwod-beach-start-tide-line",
+      toNodeId: "nwod-beach-choice-pier-or-dunes",
+      label: "Follow the clues"
+    },
+    {
+      id: "nwod-beach-e2",
+      fromNodeId: "nwod-beach-choice-pier-or-dunes",
+      toNodeId: "nwod-beach-pier-drowned-witness",
+      label: "Shuttered Pier"
+    },
+    {
+      id: "nwod-beach-e3",
+      fromNodeId: "nwod-beach-choice-pier-or-dunes",
+      toNodeId: "nwod-beach-dunes-salt-tracks",
+      label: "Grass-Choked Dunes"
+    }
+  ],
+  metadata: {
+    system: "nwod",
+    testScenario: true,
+    stages: 3,
+    branchCount: 2
+  }
+};
+
+export const starterPaths: BranchingPath[] = [mireRoadPath, ratChapelPath, nwodBeachTestPath];

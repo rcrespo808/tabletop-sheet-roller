@@ -7,23 +7,12 @@ function isSupabaseServerConfigured(): boolean {
   );
 }
 
-function isPublicPath(pathname: string): boolean {
-  return pathname === "/login" || pathname.startsWith("/auth/confirm");
-}
-
 function isIgnoredPath(pathname: string): boolean {
   return (
     pathname.startsWith("/_next/") ||
     pathname === "/favicon.ico" ||
     /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/i.test(pathname)
   );
-}
-
-function redirectToLogin(request: NextRequest): NextResponse {
-  const url = request.nextUrl.clone();
-  url.pathname = "/login";
-  url.search = "";
-  return NextResponse.redirect(url);
 }
 
 export async function updateSupabaseSession(request: NextRequest): Promise<NextResponse> {
@@ -59,10 +48,10 @@ export async function updateSupabaseSession(request: NextRequest): Promise<NextR
     }
   );
 
-  const { data } = await supabase.auth.getClaims();
-
-  if (!data?.claims && !isPublicPath(request.nextUrl.pathname)) {
-    return redirectToLogin(request);
+  try {
+    await supabase.auth.getClaims();
+  } catch (error) {
+    console.warn("[supabaseProxy] Session refresh failed.", error);
   }
 
   return response;

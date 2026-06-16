@@ -58,6 +58,14 @@ export default function TablesPage() {
     }
   }, []);
 
+  const handleAuthChange = useCallback(
+    (state: AuthState) => {
+      setAuthState(state);
+      void refresh();
+    },
+    [refresh]
+  );
+
   useEffect(() => {
     queueMicrotask(() => void refresh());
   }, [refresh]);
@@ -131,7 +139,7 @@ export default function TablesPage() {
       </header>
 
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-        <AuthPanel onAuthChange={(state) => { setAuthState(state); void refresh(); }} />
+        <AuthPanel onAuthChange={handleAuthChange} />
 
         <GlassPanel level="secondary" className="mt-6 p-6">
           <h2 className="text-lg font-semibold">Create a table</h2>

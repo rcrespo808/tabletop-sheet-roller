@@ -192,6 +192,22 @@ async function getSupabaseTable(tableId: string): Promise<GameTable | null> {
   return data ? rowToTable(data as GameTableRow) : null;
 }
 
+async function ensureSupabaseOwnerMembership(tableId: string, userId: string): Promise<void> {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { error } = await client.from("game_table_members").upsert(
+    {
+      table_id: tableId,
+      user_id: userId,
+      user_level: "gm"
+    },
+    { onConflict: "table_id,user_id" }
+  );
+
+  if (error) throw error;
+}
+
 export async function listMyTables(): Promise<GameTable[]> {
   const authState = await getCurrentAuthState();
   const userId = authState.user?.id;
@@ -260,6 +276,7 @@ export async function createTable(name: string): Promise<GameTable> {
 
       if (error) throw error;
       lastGameTableStorageMode = "supabase";
+      await ensureSupabaseOwnerMembership(data.id as string, userId);
       await getCurrentAuthState();
       return rowToTable(data as GameTableRow);
     } catch (error) {

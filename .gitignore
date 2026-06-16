@@ -11,3 +11,4 @@ tsconfig.tsbuildinfo
 !.env.example
 .tools/
 .vercel/
+.codex-remote-attachments/
